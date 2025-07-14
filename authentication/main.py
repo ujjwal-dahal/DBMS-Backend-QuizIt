@@ -4,6 +4,7 @@ from .auth_models.auth_models import (
     ForgotPasswordSchema,
     ForgotPasswordCheckSchema,
     ResetPasswordSchema,
+    EmailTokenVerifySchema,
 )
 from services.jwt_handler import (
     get_access_token,
@@ -28,7 +29,7 @@ app = APIRouter()
 ACCESS_TOKEN_EXPIRY = 15  # 15 Minutes
 REFRESH_TOKEN_EXPIRY = 1  # 1 Days
 
-VERIFY_MAIL_EXPIRY = 2
+VERIFY_MAIL_EXPIRY = 5
 
 FORGOT_PASSWORD_EXPIRY = 5
 
@@ -44,33 +45,6 @@ PATH = os.getenv("VERIFY_EMAIL_PATH")
 @app.get("/")
 def auth_index_page():
     return {"message": "This is auth page"}
-
-
-@app.get("/verify-email")
-def verify_email(token: str):
-    """This is Verify Email Page Where Verification of Email happen After Sinup"""
-    token_data = jwt.decode(token, key=TOKEN_SECRET, algorithms=TOKEN_ALGO)
-
-    user_id = token_data.get("payload")
-    print(f"User ID {user_id}")
-    if token_data is None:
-        raise HTTPException(status_code=404, detail="Invalid Token")
-
-    if datetime.now(timezone.utc).timestamp() > token_data.get("expiry"):
-        raise HTTPException(status_code=404, detail="Token is Expire")
-
-    connection = connect_database()
-    cursor = connection.cursor()
-
-    try:
-        query = "UPDATE Users SET is_verified=%s WHERE id=%s"
-        cursor.execute(query, (True, user_id))
-
-        connection.commit()
-        return {"message": "Email Verified"}
-
-    except Exception as e:
-        raise HTTPException(status_code=404, detail=str(e))
 
 
 @app.post("/signup")
@@ -104,11 +78,18 @@ async def signup_user(user: SignUpSchema):
 
         connection.commit()
 
-        generated_token = generate_token_jwt(user_id, VERIFY_MAIL_EXPIRY)
-        URL = f"{PROTOCOL}://{DOMAIN}:{PORT_NUMBER}/{PATH}?token={generated_token}"
+        otp = generate_otp()
 
-        email_body = f"To Verify Your Email Click Here : {URL}"
+        email_body = f"To Verify Your Email Enter This OTP : {otp}"
         await send_email(subject="Verify Email", to_whom=email, body=email_body)
+
+        verify_mail_expiry_time = datetime.now(timezone.utc) + timedelta(
+            minutes=VERIFY_MAIL_EXPIRY
+        )
+
+        verify_mail_query = "INSERT INTO verify_email_token (users_id , token , expiry) VALUES (%s,%s,%s)"
+        cursor.execute(verify_mail_query, (user_id, otp, verify_mail_expiry_time))
+        connection.commit()
 
         return {"message": "Signup Successful. Please verify your email."}
 
@@ -119,6 +100,53 @@ async def signup_user(user: SignUpSchema):
     finally:
         cursor.close()
         connection.close()
+
+
+@app.post("/email-token-verify")
+def email_token_verify(data: EmailTokenVerifySchema):
+    try:
+        connection = connect_database()
+        cursor = connection.cursor()
+
+        email = data.email
+        token = data.token
+
+        extract_query = "SELECT u.id, v.token , u.is_verified,v.expiry FROM Users as u JOIN verify_email_token as v ON u.id = v.users_id WHERE u.email=%s"
+
+        cursor.execute(extract_query, (email,))
+        extracted_data = cursor.fetchone()
+        print(f"Email Token Verify Extracted Data : {extracted_data}")
+        if not extracted_data:
+            raise HTTPException(status_code=404, detail="Invalid Email Address")
+
+        (id, db_token, is_verified, expiry) = extracted_data
+
+        if token != db_token:
+            raise HTTPException(status_code=404, detail="Invalid Token")
+
+        if datetime.now(timezone.utc) > expiry:
+            raise HTTPException(status_code=400, detail="Token Expired")
+
+        if is_verified:
+            raise HTTPException(status_code=400, detail="Email already Verified")
+
+        update_users_table = "UPDATE Users SET is_verified=%s WHERE email=%s"
+        delete_verify_email_token = (
+            "DELETE FROM verify_email_token WHERE users_id = %s AND token = %s"
+        )
+        cursor.execute(update_users_table, (True, email))
+        cursor.execute(delete_verify_email_token, (id, token))
+        connection.commit()
+
+        return {"message": "Email is Verified"}
+
+    except Exception as e:
+        connection.rollback()
+        raise HTTPException(status_code=404, detail=str(e))
+
+    finally:
+        connection.close()
+        cursor.close()
 
 
 @app.post("/login")
@@ -233,8 +261,6 @@ def forgot_password_token(data: ForgotPasswordCheckSchema):
             raise HTTPException(status_code=404, detail="Invalid Email")
 
         user_id, database_token, expiry_date, database_email = existing_email
-
-        expiry_date = expiry_date.replace(tzinfo=timezone.utc)
 
         if token != database_token:
             raise HTTPException(status_code=404, detail="Invalid Token")

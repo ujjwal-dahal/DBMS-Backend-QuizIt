@@ -32,6 +32,11 @@ class SignUpSchema(BaseModel):
         }
 
 
+class EmailTokenVerifySchema(BaseModel):
+    email: Annotated[str, EmailStr()]
+    token: Annotated[str, Field(...)]
+
+
 class ForgotPasswordSchema(BaseModel):
     email: Annotated[str, EmailStr()]
 
