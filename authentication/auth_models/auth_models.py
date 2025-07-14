@@ -37,6 +37,10 @@ class EmailTokenVerifySchema(BaseModel):
     token: Annotated[str, Field(...)]
 
 
+class RenewVerifyEmailToken(BaseModel):
+    email: Annotated[str, EmailStr()]
+
+
 class ForgotPasswordSchema(BaseModel):
     email: Annotated[str, EmailStr()]
 

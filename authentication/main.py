@@ -5,6 +5,7 @@ from .auth_models.auth_models import (
     ForgotPasswordCheckSchema,
     ResetPasswordSchema,
     EmailTokenVerifySchema,
+    RenewVerifyEmailToken,
 )
 from services.jwt_handler import (
     get_access_token,
@@ -47,6 +48,11 @@ def auth_index_page():
     return {"message": "This is auth page"}
 
 
+@app.get("/protected-route")
+def protected_route(verified: bool = Depends(verify_bearer_token)):
+    return {"message": "You are Authorized!"}
+
+
 @app.post("/signup")
 async def signup_user(user: SignUpSchema):
     """Signup API"""
@@ -69,7 +75,7 @@ async def signup_user(user: SignUpSchema):
 
         if email_exist or username_exist:
             raise HTTPException(
-                status_code=401, detail="Email or Username already exist"
+                status_code=409, detail="Email or Username already exist"
             )
 
         query = "INSERT INTO Users (full_name,username, email, hashed_password,created_at) VALUES (%s, %s, %s,%s,%s) RETURNING id"
@@ -111,7 +117,7 @@ def email_token_verify(data: EmailTokenVerifySchema):
         email = data.email
         token = data.token
 
-        extract_query = "SELECT u.id, v.token , u.is_verified,v.expiry FROM Users as u JOIN verify_email_token as v ON u.id = v.users_id WHERE u.email=%s"
+        extract_query = "SELECT u.id, v.token , u.is_verified,v.expiry FROM Users as u JOIN verify_email_token as v ON u.id = v.users_id WHERE u.email=%s ORDER BY v.id DESC LIMIT 1"
 
         cursor.execute(extract_query, (email,))
         extracted_data = cursor.fetchone()
@@ -122,17 +128,17 @@ def email_token_verify(data: EmailTokenVerifySchema):
         (id, db_token, is_verified, expiry) = extracted_data
 
         if token != db_token:
-            raise HTTPException(status_code=404, detail="Invalid Token")
+            raise HTTPException(status_code=401, detail="Invalid or Incorrect Token")
 
         if datetime.now(timezone.utc) > expiry:
-            raise HTTPException(status_code=400, detail="Token Expired")
+            raise HTTPException(status_code=401, detail="Token Expired")
 
         if is_verified:
-            raise HTTPException(status_code=400, detail="Email already Verified")
+            raise HTTPException(status_code=409, detail="Email already Verified")
 
         update_users_table = "UPDATE Users SET is_verified=%s WHERE email=%s"
         delete_verify_email_token = (
-            "DELETE FROM verify_email_token WHERE users_id = %s AND token = %s"
+            "DELETE FROM verify_email_token WHERE users_id = %s AND token=%s"
         )
         cursor.execute(update_users_table, (True, email))
         cursor.execute(delete_verify_email_token, (id, token))
@@ -145,8 +151,58 @@ def email_token_verify(data: EmailTokenVerifySchema):
         raise HTTPException(status_code=404, detail=str(e))
 
     finally:
-        connection.close()
         cursor.close()
+        connection.close()
+
+
+@app.post("/renew-verify-email-token")
+async def renew_verify_email_token(data: RenewVerifyEmailToken):
+    try:
+        connection = connect_database()
+        cursor = connection.cursor()
+
+        email = data.email
+
+        otp = generate_otp()
+
+        cursor.execute("SELECT id FROM Users WHERE email=%s", (email,))
+        result = cursor.fetchone()
+
+        if result is None:
+            raise HTTPException(
+                status_code=400, detail="User not Found with that Email"
+            )
+
+        (user_id,) = result
+
+        cursor.execute("DELETE FROM verify_email_token WHERE users_id=%s", (user_id,))
+        connection.commit()
+
+        email_body = f"To Verify Your Email Enter This OTP : {otp}"
+        await send_email(subject="Verify Email", to_whom=email, body=email_body)
+
+        verify_mail_expiry_time = datetime.now(timezone.utc) + timedelta(
+            minutes=VERIFY_MAIL_EXPIRY
+        )
+
+        verify_mail_query = "INSERT INTO verify_email_token (users_id , token , expiry) VALUES (%s,%s,%s)"
+        cursor.execute(verify_mail_query, (user_id, otp, verify_mail_expiry_time))
+        connection.commit()
+
+        return {"message": "Verify Mail Token has Resend"}
+
+    except Exception as e:
+        if connection:
+            connection.rollback()
+
+        raise HTTPException(status_code=400, detail=str(e))
+
+    finally:
+        if cursor:
+            cursor.close()
+
+        if connection:
+            connection.close()
 
 
 @app.post("/login")
@@ -194,11 +250,6 @@ def login_user(user: OAuth2PasswordRequestForm = Depends()):
 async def new_access_token(refresh_token: str):
     access_token = await renew_access_token(refresh_token)
     return {"access_token": access_token}
-
-
-@app.get("/protected-route")
-def protected_route(verified: bool = Depends(verify_bearer_token)):
-    return {"message": "You are Authorized!"}
 
 
 @app.post("/forgot-password")
@@ -263,13 +314,13 @@ def forgot_password_token(data: ForgotPasswordCheckSchema):
         user_id, database_token, expiry_date, database_email = existing_email
 
         if token != database_token:
-            raise HTTPException(status_code=404, detail="Invalid Token")
+            raise HTTPException(status_code=401, detail="Invalid Token")
 
         if datetime.now(timezone.utc) > expiry_date:
-            raise HTTPException(status_code=404, detail="Token Expired")
+            raise HTTPException(status_code=401, detail="Token Expired")
 
         if email != database_email:
-            raise HTTPException(status_code=404, detail="Wrong Email")
+            raise HTTPException(status_code=400, detail="Wrong Email")
 
         update_query = (
             "UPDATE forgot_password_token SET is_reset = %s WHERE  users_id=%s"
@@ -300,7 +351,7 @@ def reset_password(data: ResetPasswordSchema):
         email = data.email
         print(f"Password : {password} Email : {email}")
 
-        query = "SELECT f.is_reset ,u.id FROM forgot_password_token as f JOIN Users as u ON u.id = f.users_id WHERE u.email=%s"
+        query = "SELECT f.is_reset ,u.id FROM forgot_password_token as f JOIN Users as u ON u.id = f.users_id WHERE u.email=%s ORDER BY f.id DESC LIMIT 1"
 
         cursor.execute(query, (email,))
 
