@@ -11,7 +11,7 @@ class SignUpSchema(BaseModel):
     re_password: Annotated[str, Field(...)]
 
     @model_validator(mode="after")
-    def field_validator(cls, model):
+    def check_password_match(cls, model):
         password = model.password
         re_password = model.re_password
 
@@ -20,9 +20,9 @@ class SignUpSchema(BaseModel):
 
         return model
 
-    class Config:
-        json_schema_extra = {
-            "signup_demo": {
+    model_config = {
+        "json_schema_extra": {
+            "example": {
                 "full_name": "User Full Name",
                 "username": "Unique Username",
                 "email": "username@gmail.com",
@@ -30,6 +30,18 @@ class SignUpSchema(BaseModel):
                 "re_password": "user_password",
             }
         }
+    }
+
+
+class LoginSchema(BaseModel):
+    email: Annotated[str, EmailStr()]
+    password: Annotated[str, Field(...)]
+
+    model_config = {
+        "json_schema_extra": {
+            "example": {"email": "ram@gmail.com", "password": "ram123"}
+        }
+    }
 
 
 class EmailTokenVerifySchema(BaseModel):

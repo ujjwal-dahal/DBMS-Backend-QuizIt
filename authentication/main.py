@@ -6,6 +6,7 @@ from .auth_models.auth_models import (
     ResetPasswordSchema,
     EmailTokenVerifySchema,
     RenewVerifyEmailToken,
+    LoginSchema,
 )
 from services.jwt_handler import (
     get_access_token,
@@ -19,9 +20,8 @@ from services.response_handler import verify_bearer_token
 from services.email_send import send_email
 from dotenv import load_dotenv
 import os
-from services.generate_token import generate_token_jwt, generate_otp
+from services.generate_token import generate_otp
 from datetime import datetime, timezone, timedelta
-from fastapi.security import OAuth2PasswordRequestForm
 
 load_dotenv()
 
@@ -31,16 +31,10 @@ ACCESS_TOKEN_EXPIRY = 15  # 15 Minutes
 REFRESH_TOKEN_EXPIRY = 1  # 1 Days
 
 VERIFY_MAIL_EXPIRY = 5
-
 FORGOT_PASSWORD_EXPIRY = 5
 
 TOKEN_SECRET = os.getenv("TOKEN_SECRET")
 TOKEN_ALGO = os.getenv("TOKEN_ALGO")
-
-PROTOCOL = os.getenv("PROTOCOL")
-DOMAIN = os.getenv("DOMAIN")
-PORT_NUMBER = int(os.getenv("PORT_NUMBER"))
-PATH = os.getenv("VERIFY_EMAIL_PATH")
 
 
 @app.get("/")
@@ -130,6 +124,9 @@ def email_token_verify(data: EmailTokenVerifySchema):
         if token != db_token:
             raise HTTPException(status_code=401, detail="Invalid or Incorrect Token")
 
+        if expiry.tzinfo is None:
+            expiry = expiry.replace(tzinfo=timezone.utc)
+
         if datetime.now(timezone.utc) > expiry:
             raise HTTPException(status_code=401, detail="Token Expired")
 
@@ -206,13 +203,13 @@ async def renew_verify_email_token(data: RenewVerifyEmailToken):
 
 
 @app.post("/login")
-def login_user(user: OAuth2PasswordRequestForm = Depends()):
+def login_user(user: LoginSchema):
     """Login API"""
     connection = connect_database()
     cursor = connection.cursor()
 
     try:
-        email = user.username
+        email = user.email
         password = user.password
 
         cursor.execute(
@@ -234,7 +231,10 @@ def login_user(user: OAuth2PasswordRequestForm = Depends()):
         access_token = get_access_token({"id": user_id}, ACCESS_TOKEN_EXPIRY)
         refresh_token = get_refresh_token({"id": user_id}, REFRESH_TOKEN_EXPIRY)
 
-        return {"token": {"access_token": access_token, "refresh_token": refresh_token}}
+        return {
+            "message": "Login Successful",
+            "token": {"access_token": access_token, "refresh_token": refresh_token},
+        }
 
     except Exception as e:
         connection.rollback()
@@ -315,6 +315,9 @@ def forgot_password_token(data: ForgotPasswordCheckSchema):
 
         if token != database_token:
             raise HTTPException(status_code=401, detail="Invalid Token")
+
+        if expiry_date.tzinfo is None:
+            expiry_date = expiry_date.replace(tzinfo=timezone.utc)
 
         if datetime.now(timezone.utc) > expiry_date:
             raise HTTPException(status_code=401, detail="Token Expired")
