@@ -239,10 +239,10 @@ def login_user(user: LoginSchema):
                 "access_token": access_token,
                 "refresh_token": refresh_token,
                 "user": {
-                    "email": email,
                     "id": user_id,
-                    "full_name": full_name,
                     "username": username,
+                    "email": email,
+                    "full_name": full_name,
                 },
             }
         )
@@ -320,7 +320,7 @@ def forgot_password_token(data: ForgotPasswordCheckSchema):
         existing_email = cursor.fetchone()
 
         if not existing_email:
-            raise HTTPException(status_code=404, detail="Invalid Email")
+            raise HTTPException(status_code=404, detail="Invalid Email or Token")
 
         user_id, database_token, expiry_date, database_email = existing_email
 

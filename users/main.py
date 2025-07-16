@@ -1,16 +1,20 @@
-from fastapi import APIRouter, HTTPException, Path
+from fastapi import APIRouter, HTTPException, Path, Depends
 from database.connect_db import connect_database
+from services.response_handler import verify_bearer_token
 
 router = APIRouter()
 
 
 @router.get("/{user_id}")
-def get_users(user_id: str = Path(..., description="Enter ID of User Here")):
+def get_users(
+    user_id: str = Path(..., description="Enter ID of User Here"),
+    auth: bool = Depends(verify_bearer_token),  # 🔒 Protected Route
+):
     try:
         connection = connect_database()
         cursor = connection.cursor()
 
-        query = "SELECT email , username, photo FROM Users WHERE id=%s"
+        query = "SELECT email, username, photo FROM Users WHERE id=%s"
         cursor.execute(query, (user_id,))
 
         user = cursor.fetchone()
@@ -31,6 +35,5 @@ def get_users(user_id: str = Path(..., description="Enter ID of User Here")):
     finally:
         if cursor:
             cursor.close()
-
         if connection:
             connection.close()
