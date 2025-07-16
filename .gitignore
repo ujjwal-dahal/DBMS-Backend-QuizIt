@@ -3,3 +3,5 @@ myenv
 .env
 
 extra_code.txt
+
+venv
