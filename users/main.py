@@ -5,26 +5,40 @@ from services.response_handler import verify_bearer_token
 router = APIRouter()
 
 
-@router.get("/{user_id}")
+@router.get("/{parms}")
 def get_users(
-    user_id: str = Path(..., description="Enter ID of User Here"),
-    auth: bool = Depends(verify_bearer_token),  # 🔒 Protected Route
+    parms: str = Path(..., description="Enter ID of User Here"),
+    auth: bool = Depends(verify_bearer_token),
 ):
+    connection = connect_database()
+    cursor = connection.cursor()
     try:
-        connection = connect_database()
-        cursor = connection.cursor()
 
-        query = "SELECT email, username, photo FROM Users WHERE id=%s"
-        cursor.execute(query, (user_id,))
+        if parms.isdigit():
+            query = (
+                "SELECT id ,full_name, email, username, photo FROM Users WHERE id=%s"
+            )
+            cursor.execute(query, (parms,))
+        else:
+            query = "SELECT id ,full_name, email, username, photo FROM Users WHERE username=%s"
+            cursor.execute(query, (parms,))
 
         user = cursor.fetchone()
 
         if user is None:
             raise HTTPException(status_code=404, detail="User not Found")
 
-        (email, username, photo) = user
+        (id, full_name, email, username, photo) = user
 
-        return {"message": {"username": username, "email": email, "photo": photo}}
+        return {
+            "user": {
+                "id": id,
+                "full_name": full_name,
+                "username": username,
+                "email": email,
+                "photo": photo,
+            }
+        }
 
     except Exception as e:
         if connection:

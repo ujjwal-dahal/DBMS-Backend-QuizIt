@@ -88,7 +88,7 @@ async def signup_user(user: SignUpSchema):
             minutes=VERIFY_MAIL_EXPIRY
         )
 
-        verify_mail_query = "INSERT INTO verify_email_token (users_id , token , expiry) VALUES (%s,%s,%s)"
+        verify_mail_query = "INSERT INTO verify_email_token (user_id , token , expiry) VALUES (%s,%s,%s)"
         cursor.execute(verify_mail_query, (user_id, otp, verify_mail_expiry_time))
         connection.commit()
 
@@ -112,7 +112,7 @@ def email_token_verify(data: EmailTokenVerifySchema):
         email = data.email
         token = data.token
 
-        extract_query = "SELECT u.id, v.token , u.is_verified,v.expiry FROM Users as u JOIN verify_email_token as v ON u.id = v.users_id WHERE u.email=%s ORDER BY v.id DESC LIMIT 1"
+        extract_query = "SELECT u.id, v.token , u.is_verified,v.expiry FROM Users as u JOIN verify_email_token as v ON u.id = v.user_id WHERE u.email=%s ORDER BY v.id DESC LIMIT 1"
 
         cursor.execute(extract_query, (email,))
         extracted_data = cursor.fetchone()
@@ -136,7 +136,7 @@ def email_token_verify(data: EmailTokenVerifySchema):
 
         update_users_table = "UPDATE Users SET is_verified=%s WHERE email=%s"
         delete_verify_email_token = (
-            "DELETE FROM verify_email_token WHERE users_id = %s AND token=%s"
+            "DELETE FROM verify_email_token WHERE user_id = %s AND token=%s"
         )
         cursor.execute(update_users_table, (True, email))
         cursor.execute(delete_verify_email_token, (id, token))
@@ -173,7 +173,7 @@ async def renew_verify_email_token(data: RenewVerifyEmailToken):
 
         (user_id,) = result
 
-        cursor.execute("DELETE FROM verify_email_token WHERE users_id=%s", (user_id,))
+        cursor.execute("DELETE FROM verify_email_token WHERE user_id=%s", (user_id,))
         connection.commit()
 
         email_body = f"To Verify Your Email Enter This OTP : {otp}"
@@ -183,7 +183,7 @@ async def renew_verify_email_token(data: RenewVerifyEmailToken):
             minutes=VERIFY_MAIL_EXPIRY
         )
 
-        verify_mail_query = "INSERT INTO verify_email_token (users_id , token , expiry) VALUES (%s,%s,%s)"
+        verify_mail_query = "INSERT INTO verify_email_token (user_id , token , expiry) VALUES (%s,%s,%s)"
         cursor.execute(verify_mail_query, (user_id, otp, verify_mail_expiry_time))
         connection.commit()
 
@@ -286,7 +286,7 @@ async def forgot_password(data: ForgotPasswordSchema):
         user_id = cursor.fetchone()[0]
 
         cursor.execute(
-            "INSERT INTO forgot_password_token (users_id, token, expiry) VALUES (%s, %s, %s)",
+            "INSERT INTO forgot_password_token (user_id, token, expiry) VALUES (%s, %s, %s)",
             (user_id, otp, token_expiry),
         )
 
@@ -313,7 +313,7 @@ def forgot_password_token(data: ForgotPasswordCheckSchema):
         token = data.token
         email = data.email
 
-        query = "SELECT u.id, f.token, f.expiry, u.email FROM forgot_password_token AS f JOIN users AS u ON u.id = f.users_id WHERE u.email = %s ORDER BY f.id DESC LIMIT 1;"
+        query = "SELECT u.id, f.token, f.expiry, u.email FROM forgot_password_token AS f JOIN users AS u ON u.id = f.user_id WHERE u.email = %s ORDER BY f.id DESC LIMIT 1;"
 
         cursor.execute(query, (email,))
 
@@ -337,7 +337,7 @@ def forgot_password_token(data: ForgotPasswordCheckSchema):
             raise HTTPException(status_code=400, detail="Wrong Email")
 
         update_query = (
-            "UPDATE forgot_password_token SET is_reset = %s WHERE  users_id=%s"
+            "UPDATE forgot_password_token SET is_reset = %s WHERE  user_id=%s"
         )
         cursor.execute(update_query, (True, user_id))
 
@@ -365,7 +365,7 @@ def reset_password(data: ResetPasswordSchema):
         email = data.email
         print(f"Password : {password} Email : {email}")
 
-        query = "SELECT f.is_reset ,u.id FROM forgot_password_token as f JOIN Users as u ON u.id = f.users_id WHERE u.email=%s ORDER BY f.id DESC LIMIT 1"
+        query = "SELECT f.is_reset ,u.id FROM forgot_password_token as f JOIN Users as u ON u.id = f.user_id WHERE u.email=%s ORDER BY f.id DESC LIMIT 1"
 
         cursor.execute(query, (email,))
 
@@ -387,7 +387,7 @@ def reset_password(data: ResetPasswordSchema):
         cursor.execute(update_query, (hashed_password, email))
         connection.commit()
 
-        delete_query = "DELETE FROM forgot_password_token WHERE users_id=%s"
+        delete_query = "DELETE FROM forgot_password_token WHERE user_id=%s"
         cursor.execute(delete_query, (id,))
         connection.commit()
 
