@@ -1,4 +1,5 @@
 from fastapi import APIRouter, HTTPException, Depends
+from fastapi.responses import JSONResponse
 from .auth_models.auth_models import (
     SignUpSchema,
     ForgotPasswordSchema,
@@ -231,10 +232,14 @@ def login_user(user: LoginSchema):
         access_token = get_access_token({"id": user_id}, ACCESS_TOKEN_EXPIRY)
         refresh_token = get_refresh_token({"id": user_id}, REFRESH_TOKEN_EXPIRY)
 
-        return {
-            "message": "Login Successful",
-            "token": {"access_token": access_token, "refresh_token": refresh_token},
-        }
+        return JSONResponse(
+            content={
+                "message": "Login Successful",
+                "access_token": access_token,
+                "refresh_token": refresh_token,
+                "user": {"email": email, "id": user_id},
+            }
+        )
 
     except Exception as e:
         connection.rollback()
