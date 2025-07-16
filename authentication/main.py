@@ -214,14 +214,15 @@ def login_user(user: LoginSchema):
         password = user.password
 
         cursor.execute(
-            "SELECT id,hashed_password,is_verified from Users WHERE email=%s", (email,)
+            "SELECT id,hashed_password,is_verified,full_name,username from Users WHERE email=%s",
+            (email,),
         )
         result = cursor.fetchone()
 
         if not result:
             raise HTTPException(status_code=404, detail="Email doesnot Exist")
 
-        user_id, hashed_password, is_verified = result
+        user_id, hashed_password, is_verified, full_name, username = result
 
         if not (match_password(password, hashed_password)):
             raise HTTPException(status_code=401, detail="Invalid Password")
@@ -237,7 +238,12 @@ def login_user(user: LoginSchema):
                 "message": "Login Successful",
                 "access_token": access_token,
                 "refresh_token": refresh_token,
-                "user": {"email": email, "id": user_id},
+                "user": {
+                    "email": email,
+                    "id": user_id,
+                    "full_name": full_name,
+                    "username": username,
+                },
             }
         )
 
