@@ -163,7 +163,7 @@ async def renew_verify_email_token(data: RenewVerifyEmailToken):
 
         otp = generate_otp()
 
-        cursor.execute("SELECT id FROM Users WHERE email=%s", (email,))
+        cursor.execute("SELECT id , is_verified FROM Users WHERE email=%s", (email,))
         result = cursor.fetchone()
 
         if result is None:
@@ -171,7 +171,10 @@ async def renew_verify_email_token(data: RenewVerifyEmailToken):
                 status_code=400, detail="User not Found with that Email"
             )
 
-        (user_id,) = result
+        (user_id, is_verified) = result
+
+        if is_verified:
+            raise HTTPException(status_code=409, detail="Email already Verified")
 
         cursor.execute("DELETE FROM verify_email_token WHERE user_id=%s", (user_id,))
         connection.commit()
