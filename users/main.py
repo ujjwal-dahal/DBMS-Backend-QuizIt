@@ -18,7 +18,7 @@ def get_users(
             query = (
                 "SELECT id ,full_name, email, username, photo FROM Users WHERE id=%s"
             )
-            cursor.execute(query, (parms,))
+            cursor.execute(query, (int(parms),))
         else:
             query = "SELECT id ,full_name, email, username, photo FROM Users WHERE username=%s"
             cursor.execute(query, (parms,))
