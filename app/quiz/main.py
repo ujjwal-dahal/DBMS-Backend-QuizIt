@@ -44,8 +44,6 @@ def upload_quiz(quiz_data: QuizSchema, auth: dict = Depends(verify_bearer_token)
 
         quiz_id = returned_quiz_id[0]
 
-        print(returned_quiz_id)
-
         for q in quiz_data.questions:
 
             question_query = """
@@ -94,6 +92,6 @@ def upload_quiz(quiz_data: QuizSchema, auth: dict = Depends(verify_bearer_token)
 
 
 @app.get("/tags-option")
-def quiz_tags_option():
+def quiz_tags_option(auth: dict = Depends(verify_bearer_token)):
     quiz_tags_list = [tag.value for tag in QuizTag]
     return JSONResponse(content={"quiz_tags": quiz_tags_list})
