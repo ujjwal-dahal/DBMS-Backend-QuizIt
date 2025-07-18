@@ -38,21 +38,21 @@ def decode_jwt_token(token: str):
     return decoded_token
 
 
-def verify_token(token: str) -> bool:
+def verify_token(token: str) -> dict | None:
     try:
         payload = decode_jwt_token(token)
         user_id = payload.get("id")
 
         if user_id is None:
-            return False
+            return None
 
         if datetime.now(timezone.utc).timestamp() > payload.get("exp"):
-            return False
+            return None
 
-        return True
+        return payload
 
     except Exception:
-        return False
+        return None
 
 
 async def renew_access_token(refresh_token: str):

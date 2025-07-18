@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException, Query, Depends
 from database.connect_db import connect_database
 from services.response_handler import verify_bearer_token
+from typing import Annotated
 
 router = APIRouter()
 
@@ -47,3 +48,39 @@ def get_user(
     finally:
         cursor.close()
         connection.close()
+
+
+@router.get("/check-username")
+def check_username_uniqueness(
+    username: Annotated[
+        str, Query(..., description="Enter Username to Check Uniqueness")
+    ],
+):
+    connection = connect_database()
+    cursor = connection.cursor()
+
+    if username is None:
+        raise HTTPException(status_code=400, detail="Enter Username")
+
+    try:
+        cursor.execute("SELECT * FROM Users WHERE username=%s", (username,))
+        existing_data = cursor.fetchone()
+
+        if existing_data:
+            return {"is_unique": False}
+
+        elif not existing_data:
+            return {"is_unique": True}
+
+    except Exception as e:
+        if connection:
+            connection.rollback()
+
+        raise HTTPException(status_code=500, detail=str(e))
+
+    finally:
+        if cursor:
+            cursor.close()
+
+        if connection:
+            connection.close()

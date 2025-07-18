@@ -17,11 +17,11 @@ def verify_bearer_token(
 ):
     actual_token = token.credentials
 
-    is_valid = verify_token(actual_token)
+    payload = verify_token(actual_token)
 
-    if not is_valid:
+    if not payload:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="Invalid token"
         )
 
-    return True
+    return payload

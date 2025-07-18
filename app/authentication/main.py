@@ -44,7 +44,7 @@ def auth_index_page():
 
 
 @app.get("/protected-route")
-def protected_route(verified: bool = Depends(verify_bearer_token)):
+def protected_route(verified: dict = Depends(verify_bearer_token)):
     return {"message": "You are Authorized!"}
 
 
