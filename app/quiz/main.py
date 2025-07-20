@@ -67,11 +67,25 @@ def upload_quiz(quiz_data: QuizSchema, auth: dict = Depends(verify_bearer_token)
             )
 
         tag_query = """
-        INSERT INTO quiz_tags (tag, quiz_id)
-        VALUES (%s, %s)
+        INSERT INTO tags (name)
+        VALUES (%s) RETURNING id
         """
         for tag in quiz_data.tags:
-            cursor.execute(tag_query, (tag, quiz_id))
+            cursor.execute("SELECT id FROM tags WHERE name=%s", (tag,))
+            existing_data = cursor.fetchone()
+
+            if existing_data:
+                tag_id = existing_data[0]
+            else:
+                cursor.execute(tag_query, (tag,))
+                tag_id = cursor.fetchone()[0]
+
+            quiz_tag_query = """
+            INSERT INTO quiz_tags (quiz_id , tag_id)
+            VALUES
+            (%s,%s)
+            """
+            cursor.execute(quiz_tag_query, (quiz_id, tag_id))
 
         connection.commit()
 
