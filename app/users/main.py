@@ -1,16 +1,68 @@
-from fastapi import APIRouter, HTTPException, Query, Depends
+from fastapi import APIRouter, HTTPException, Query, Depends, Body
+from fastapi.responses import JSONResponse
 from database.connect_db import connect_database
 from services.response_handler import verify_bearer_token
-from typing import Annotated
+from typing import Annotated, List, Dict
+import json
+from app.users.models.quiz_model import QuizSchema
 
 router = APIRouter()
+
+
+@router.get("/")
+def get_all_users(auth: dict = Depends(verify_bearer_token)):
+    user_id = auth.get("id")
+    connection = connect_database()
+    cursor = connection.cursor()
+    try:
+        get_all_users_query = """
+        SELECT id , full_name , username,photo FROM users
+        """
+        cursor.execute(get_all_users_query)
+
+        all_fetched_data = cursor.fetchall()
+
+        if not all_fetched_data:
+            raise HTTPException(status_code=400, detail="Something went wrong")
+
+        all_fetched_data = list(all_fetched_data)
+        result = []
+        for data in all_fetched_data:
+            id, name, username, image = data
+            if user_id != id:
+                is_this_me = False
+            if user_id == id:
+                is_this_me = True
+            result.append(
+                {
+                    "id": id,
+                    "name": name,
+                    "username": username,
+                    "image": image,
+                    "is_this_me": is_this_me,
+                    "is_followed": False,
+                }
+            )
+
+        return JSONResponse(content={"message": "Successful Response", "data": result})
+
+    except Exception as e:
+        if connection:
+            connection.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+
+    finally:
+        if cursor:
+            cursor.close()
+        if connection:
+            connection.close()
 
 
 @router.get("/")
 def get_user(
     user_id: int = Query(None, description="Enter User ID"),
     username: str = Query(None, description="Enter Username"),
-    auth: bool = Depends(verify_bearer_token),
+    auth: dict = Depends(verify_bearer_token),
 ):
     if user_id is None and username is None:
         raise HTTPException(status_code=400, detail="Provide user_id or username")
@@ -82,5 +134,178 @@ def check_username_uniqueness(
         if cursor:
             cursor.close()
 
+        if connection:
+            connection.close()
+
+
+@router.get("/me/{quiz_id}/edit")
+def user_page(quiz_id: str, user: dict = Depends(verify_bearer_token)):
+    user_id = user.get("id")
+
+    connection = connect_database()
+    cursor = connection.cursor()
+
+    try:
+        query = """
+        SELECT q.cover_photo , q.title, q.description,
+        qq.question,qq.question_index, qq.options,qq.correct_option,qq.points,qq.duration
+        FROM quizzes as q
+        JOIN users as u ON u.id = q.creator_id
+        JOIN quiz_questions as qq ON qq.quiz_id = q.id
+        WHERE u.id = %s AND q.id = %s
+        """
+
+        cursor.execute(query, (user_id, quiz_id))
+        fetched_data = cursor.fetchall()
+
+        if not fetched_data:
+            raise HTTPException(status_code=404, detail=" Not Found ")
+
+        result = []
+        for row in fetched_data:
+            result.append(
+                {
+                    "cover_photo": row[0],
+                    "title": row[1],
+                    "description": row[2],
+                    "question": row[3],
+                    "question_index": row[4],
+                    "options": row[5],
+                    "correct_option": row[6],
+                    "points": row[7],
+                    "duration": row[8],
+                }
+            )
+
+        return JSONResponse(content={"user_id": user_id, "edit_data": result})
+
+    except Exception as e:
+        if connection:
+            connection.rollback()
+
+        raise HTTPException(status_code=500, detail=f"Server Error : {str(e)}")
+
+    finally:
+        if cursor:
+            cursor.close()
+        if connection:
+            connection.close()
+
+
+@router.post("/me/{quiz_id}/edit")
+def edit_user_quiz(
+    quiz_id: str, update_data: QuizSchema, user: dict = Depends(verify_bearer_token)
+):
+    user_id = user.get("id")
+    connection = connect_database()
+    cursor = connection.cursor()
+
+    try:
+
+        if not update_data:
+            raise HTTPException(status_code=404, detail="No any Update Data")
+
+        cover_photo = update_data.cover_photo
+        title = update_data.title
+        description = update_data.description
+        creator_id = user_id
+
+        query = """
+            UPDATE quizzes
+            SET cover_photo = %s,
+            title = %s,
+            description = %s
+            WHERE id = %s AND creator_id = %s
+        """
+
+        cursor.execute(query, (cover_photo, title, description, quiz_id, creator_id))
+
+        for q in update_data.questions:
+            question_query = """
+                    UPDATE quiz_questions
+                    SET question = %s,
+                    question_index = %s,
+                    options = %s,
+                    correct_option = %s,
+                    points = %s,
+                    duration = %s
+                    WHERE quiz_id = %s AND question_index = %s
+                    """
+
+            cursor.execute(
+                question_query,
+                (
+                    q.question,
+                    q.question_index,
+                    json.dumps(q.options),
+                    q.correct_option,
+                    q.points,
+                    q.duration,
+                    quiz_id,
+                    q.question_index,
+                ),
+            )
+
+        connection.commit()
+        return {
+            "message": "Updated Successfully",
+            "quiz_id": quiz_id,
+            "updated_questions": len(update_data.questions),
+        }
+
+    except Exception as e:
+        if connection:
+            connection.rollback()
+
+        raise HTTPException(status_code=500, detail=str(e))
+
+    finally:
+        if cursor:
+            cursor.close()
+        if connection:
+            connection.close()
+
+
+@router.delete("/me/{quiz_id}/delete")
+def delete_quiz(quiz_id: str, auth: dict = Depends(verify_bearer_token)):
+    connection = connect_database()
+    cursor = connection.cursor()
+
+    try:
+        cursor.execute("SELECT id FROM quizzes WHERE id = %s", (quiz_id,))
+        quiz = cursor.fetchone()
+
+        if not quiz:
+            raise HTTPException(status_code=404, detail="Quiz not found")
+
+        cursor.execute("SELECT created_by FROM quizzes WHERE id = %s", (quiz_id,))
+        created_id = cursor.fetchone()[0]
+
+        if not created_id:
+            raise HTTPException(status_code=404, detail="Quiz not found")
+
+        if created_id != auth.get("id"):
+            raise HTTPException(
+                status_code=403, detail="Not authorized to delete this quiz"
+            )
+
+        query = """
+        DELETE FROM quizzes WHERE id=%s
+        """
+        cursor.execute(query, (quiz_id,))
+
+        connection.commit()
+
+        return {"message": "Quiz Deleted Successfully"}
+
+    except Exception as e:
+        if connection:
+            connection.rollback()
+
+        raise HTTPException(status_code=400, detail=str(e))
+
+    finally:
+        if cursor:
+            cursor.close()
         if connection:
             connection.close()

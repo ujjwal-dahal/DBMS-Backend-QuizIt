@@ -40,7 +40,11 @@ TOKEN_ALGO = os.getenv("TOKEN_ALGO")
 
 @app.get("/")
 def auth_index_page():
-    return {"message": "This is auth page"}
+    return {
+        "message": "This is Authentication API for QuizIt",
+        "Backend Developer": "Ujjwal Dahal",
+        "Frontend Developer": "Dharmananda Joshi",
+    }
 
 
 @app.get("/protected-route")
@@ -404,3 +408,46 @@ def reset_password(data: ResetPasswordSchema):
     finally:
         connection.close()
         cursor.close()
+
+
+@app.get("/me")
+def get_authenticated_user(auth: dict = Depends(verify_bearer_token)):
+    connection = connect_database()
+    cursor = connection.cursor()
+
+    try:
+        user_id = auth.get("id")
+
+        cursor.execute(
+            "SELECT id, username, email, full_name FROM Users WHERE id = %s", (user_id,)
+        )
+        user = cursor.fetchone()
+
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+
+        access_token = get_access_token({"id": user_id}, ACCESS_TOKEN_EXPIRY)
+        refresh_token = get_refresh_token({"id": user_id}, REFRESH_TOKEN_EXPIRY)
+
+        user_id, username, email, full_name = user
+
+        return JSONResponse(
+            content={
+                "message": "Token is valid",
+                "access_token": access_token,
+                "refresh_token": refresh_token,
+                "user": {
+                    "id": user_id,
+                    "username": username,
+                    "email": email,
+                    "full_name": full_name,
+                },
+            }
+        )
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+    finally:
+        cursor.close()
+        connection.close()
