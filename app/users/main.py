@@ -148,7 +148,7 @@ def user_page(quiz_id: str, user: dict = Depends(verify_bearer_token)):
     try:
         query = """
         SELECT q.cover_photo , q.title, q.description,
-        qq.id, qq.question, qq.question_index, qq.options, qq.correct_option, qq.points, qq.duration
+        qq.id, qq.question, qq.question_index, qq.options, qq.correct_option, qq.points, qq.duration , q.id
         FROM quizzes as q
         JOIN users as u ON u.id = q.creator_id
         JOIN quiz_questions as qq ON qq.quiz_id = q.id
@@ -161,6 +161,7 @@ def user_page(quiz_id: str, user: dict = Depends(verify_bearer_token)):
         if not fetched_data:
             raise HTTPException(status_code=404, detail="Not Found")
 
+        quiz_id = fetched_data[0][10]
         cover_photo = fetched_data[0][0]
         title = fetched_data[0][1]
         description = fetched_data[0][2]
@@ -171,18 +172,18 @@ def user_page(quiz_id: str, user: dict = Depends(verify_bearer_token)):
                 {
                     "id": row[3],
                     "question": row[4],
-                    "questionIndex": row[5],
+                    "question_index": row[5],
                     "options": row[6],
-                    "correctOption": row[7],
+                    "correct_option": row[7],
                     "points": row[8],
                     "duration": row[9],
                 }
             )
-
         return {
-            "userId": user_id,
-            "editData": {
-                "coverPhoto": cover_photo,
+            "user_id": user_id,
+            "edit_data": {
+                "quiz_id": quiz_id,
+                "cover_photo": cover_photo,
                 "title": title,
                 "description": description,
                 "questions": questions,
