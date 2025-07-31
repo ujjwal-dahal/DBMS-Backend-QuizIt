@@ -177,7 +177,7 @@ def user_page(quiz_id: str, user: dict = Depends(verify_bearer_token)):
                 }
             )
 
-        return JSONResponse(content={"user_id": user_id, "edit_data": result})
+        return {"user_id": user_id, "edit_data": result}
 
     except Exception as e:
         if connection:
@@ -192,7 +192,7 @@ def user_page(quiz_id: str, user: dict = Depends(verify_bearer_token)):
             connection.close()
 
 
-@router.post("/me/{quiz_id}/edit")
+@router.put("/me/{quiz_id}/edit")
 def edit_user_quiz(
     quiz_id: str, update_data: QuizSchema, user: dict = Depends(verify_bearer_token)
 ):
