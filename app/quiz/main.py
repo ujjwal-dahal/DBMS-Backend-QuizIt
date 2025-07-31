@@ -357,3 +357,57 @@ def delete_question(
             cursor.close()
         if connection:
             connection.close()
+
+
+@app.get("/quiz-questions/{quiz_id}")
+def get_quiz_questions(quiz_id: str, auth: dict = Depends(verify_bearer_token)):
+    connection = connect_database()
+    cursor = connection.cursor()
+
+    try:
+
+        get_all_quiz_questions_query = """
+            SELECT qq.id, qq.question, qq.question_index, qq.options,
+            qq.correct_option, qq.points, qq.duration
+            FROM quiz_questions AS qq
+            WHERE qq.quiz_id = %s
+        """
+
+        cursor.execute(get_all_quiz_questions_query, (quiz_id,))
+        fetch_all_questions = cursor.fetchall()
+
+        question_result = []
+        for qq in fetch_all_questions:
+            (
+                id,
+                question,
+                question_index,
+                options,
+                correct_option,
+                points,
+                duration,
+            ) = qq
+            question_result.append(
+                {
+                    "question_id": id,
+                    "question": question,
+                    "question_index": question_index,
+                    "options": options,
+                    "correct_option": correct_option,
+                    "points": points,
+                    "duration": duration,
+                }
+            )
+
+        return {"message": "Successfull Response", "data": question_result}
+
+    except Exception as e:
+        if connection:
+            connection.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+
+    finally:
+        if cursor:
+            cursor.close()
+        if connection:
+            connection.close()
