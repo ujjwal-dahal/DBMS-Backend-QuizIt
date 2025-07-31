@@ -179,7 +179,7 @@ def get_quiz_by_id(quiz_id: str, auth: dict = Depends(verify_bearer_token)):
         JOIN users u ON u.id = q.creator_id
         LEFT JOIN quiz_questions qq ON qq.quiz_id = q.id
         WHERE q.id = %s
-        GROUP BY q.id, q.title, q.description, q.cover_photo,
+        GROUP BY q.id,u.id, q.title, q.description, q.cover_photo,
                  u.full_name, u.photo, q.created_at
         """
         cursor.execute(query, (quiz_id,))
