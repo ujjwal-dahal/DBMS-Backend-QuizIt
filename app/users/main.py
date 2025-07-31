@@ -148,7 +148,7 @@ def user_page(quiz_id: str, user: dict = Depends(verify_bearer_token)):
     try:
         query = """
         SELECT q.cover_photo , q.title, q.description,
-        qq.question,qq.question_index, qq.options,qq.correct_option,qq.points,qq.duration
+        qq.id, qq.question, qq.question_index, qq.options, qq.correct_option, qq.points, qq.duration
         FROM quizzes as q
         JOIN users as u ON u.id = q.creator_id
         JOIN quiz_questions as qq ON qq.quiz_id = q.id
@@ -159,31 +159,40 @@ def user_page(quiz_id: str, user: dict = Depends(verify_bearer_token)):
         fetched_data = cursor.fetchall()
 
         if not fetched_data:
-            raise HTTPException(status_code=404, detail=" Not Found ")
+            raise HTTPException(status_code=404, detail="Not Found")
 
-        result = []
+        cover_photo = fetched_data[0][0]
+        title = fetched_data[0][1]
+        description = fetched_data[0][2]
+
+        questions = []
         for row in fetched_data:
-            result.append(
+            questions.append(
                 {
-                    "cover_photo": row[0],
-                    "title": row[1],
-                    "description": row[2],
-                    "question": row[3],
-                    "question_index": row[4],
-                    "options": row[5],
-                    "correct_option": row[6],
-                    "points": row[7],
-                    "duration": row[8],
+                    "id": row[3],
+                    "question": row[4],
+                    "questionIndex": row[5],
+                    "options": row[6],
+                    "correctOption": row[7],
+                    "points": row[8],
+                    "duration": row[9],
                 }
             )
 
-        return {"user_id": user_id, "edit_data": result}
+        return {
+            "userId": user_id,
+            "editData": {
+                "coverPhoto": cover_photo,
+                "title": title,
+                "description": description,
+                "questions": questions,
+            },
+        }
 
     except Exception as e:
         if connection:
             connection.rollback()
-
-        raise HTTPException(status_code=500, detail=f"Server Error : {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Server Error: {str(e)}")
 
     finally:
         if cursor:
