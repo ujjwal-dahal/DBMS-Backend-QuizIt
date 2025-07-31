@@ -109,7 +109,7 @@ def upload_quiz(quiz_data: QuizSchema, auth: dict = Depends(verify_bearer_token)
 @app.get("/tags-option")
 def quiz_tags_option(auth: dict = Depends(verify_bearer_token)):
     quiz_tags_list = [tag.value for tag in QuizTag]
-    return JSONResponse(content={"quiz_tags": quiz_tags_list})
+    return {"quiz_tags": quiz_tags_list}
 
 
 @app.get("/")
@@ -151,7 +151,7 @@ def get_all_quizzes(auth: dict = Depends(verify_bearer_token)):
                 }
             )
 
-        return JSONResponse(content={"message": "Response Successful", "data": result})
+        return {"message": "Response Successful", "data": result}
 
     except Exception as e:
         if connection:
@@ -201,7 +201,7 @@ def get_quiz_by_id(quiz_id: str, auth: dict = Depends(verify_bearer_token)):
             "count": count,
         }
 
-        return JSONResponse(content={"message": "Response Successful", "data": result})
+        return {"message": "Response Successful", "data": result}
 
     except Exception as e:
         if connection:
