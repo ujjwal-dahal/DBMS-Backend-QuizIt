@@ -169,10 +169,10 @@ def get_all_quizzes(auth: dict = Depends(verify_bearer_token)):
 def get_quiz_by_id(quiz_id: str, auth: dict = Depends(verify_bearer_token)):
     connection = connect_database()
     cursor = connection.cursor()
-
+    user_id = auth.get("id")
     try:
         query = """
-        SELECT q.id, q.title, q.description, q.cover_photo,
+        SELECT q.id,u.id, q.title, q.description, q.cover_photo,
                u.full_name, u.photo, q.created_at,
                COUNT(qq.id)
         FROM quizzes q
@@ -188,7 +188,12 @@ def get_quiz_by_id(quiz_id: str, auth: dict = Depends(verify_bearer_token)):
         if not row:
             raise HTTPException(status_code=404, detail="Quiz not found.")
 
-        id, title, description, cover_photo, name, image, date, count = row
+        id, player_id, title, description, cover_photo, name, image, date, count = row
+
+        if player_id == user_id:
+            is_this_me = True
+        if player_id != user_id:
+            is_this_me = False
         result = {
             "id": id,
             "title": title,
@@ -198,6 +203,7 @@ def get_quiz_by_id(quiz_id: str, auth: dict = Depends(verify_bearer_token)):
             "image": image,
             "plays": rd.randint(1, 100),
             "date": date,
+            "is_this_me": is_this_me,
             "count": count,
         }
 
