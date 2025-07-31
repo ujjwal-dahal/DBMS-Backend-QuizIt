@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import List, Optional
+from typing import List, Optional, Annotated
 from enum import Enum
 
 
@@ -19,3 +19,9 @@ class QuizSchema(BaseModel):
     is_published: Optional[bool] = Field(default=False)
     questions: List[QuizQuestionSchema] = Field(..., example=[])
     tags: List[str] = Field(..., examples=["science", "math"])
+
+
+class UpdateProfileSchema(BaseModel):
+    full_name: Annotated[str, Field(..., example="Full Name of User")]
+    username: Annotated[str, Field(..., example="Username of User")]
+    photo: Annotated[str, Field(..., example="Photo of User")]

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import JSONResponse
 from .quiz_models.quiz_model import QuizSchema, QuizTag
 from services.response_handler import verify_bearer_token
@@ -165,6 +165,109 @@ def get_all_quizzes(auth: dict = Depends(verify_bearer_token)):
             connection.close()
 
 
+@app.get("/my-quizzes")
+def my_quizzes(
+    auth: dict = Depends(verify_bearer_token),
+    filter: str = Query(None),
+    order: str = Query(None),
+):
+    connection = connect_database()
+    cursor = connection.cursor()
+    creator_id = auth.get("id")
+
+    try:
+        filtering_list = ["newest"]
+        ordering_list = ["asc", "desc"]
+
+        if filter is None:
+            filter = "newest"
+        if order is None:
+            order = "asc"
+
+        if order.lower() not in ordering_list:
+            raise HTTPException(status_code=400, detail="Invalid ordering value")
+        if filter not in filtering_list:
+            raise HTTPException(status_code=400, detail="Invalid filtering value")
+
+        if filter == "newest":
+            filtering_criteria = "created_at"
+
+        get_quiz_description_query = f"""
+        SELECT q.id , q.cover_photo, q.title , q.description, q.created_at
+        FROM quizzes AS q
+        WHERE q.creator_id = %s
+        ORDER BY {filtering_criteria} {order.upper()}
+        """
+
+        cursor.execute(get_quiz_description_query, (creator_id,))
+        fetch_all_data = cursor.fetchall()
+
+        if not fetch_all_data:
+            raise HTTPException(status_code=404, detail="No quizzes found")
+
+        result = []
+
+        for data in fetch_all_data:
+            (quiz_id, cover_photo, title, description, created_at) = data
+
+            get_all_questions_query = """
+            SELECT qq.id, qq.question, qq.question_index, qq.options,
+                   qq.correct_option, qq.points, qq.duration
+            FROM quiz_questions AS qq
+            WHERE qq.quiz_id = %s
+            """
+
+            cursor.execute(get_all_questions_query, (quiz_id,))
+            fetch_all_questions = cursor.fetchall()
+
+            question_result = []
+            for qq in fetch_all_questions:
+                (
+                    id,
+                    question,
+                    question_index,
+                    options,
+                    correct_option,
+                    points,
+                    duration,
+                ) = qq
+                question_result.append(
+                    {
+                        "question_id": id,
+                        "question": question,
+                        "question_index": question_index,
+                        "options": options,
+                        "correct_option": correct_option,
+                        "points": points,
+                        "duration": duration,
+                    }
+                )
+
+            result.append(
+                {
+                    "quiz_id": quiz_id,
+                    "cover_photo": cover_photo,
+                    "title": title,
+                    "description": description,
+                    "questions": question_result,
+                    "created_at": created_at,
+                }
+            )
+
+        return {"message": "Successful Response", "data": result}
+
+    except Exception as e:
+        if connection:
+            connection.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+
+    finally:
+        if cursor:
+            cursor.close()
+        if connection:
+            connection.close()
+
+
 @app.get("/{quiz_id}")
 def get_quiz_by_id(quiz_id: str, auth: dict = Depends(verify_bearer_token)):
     connection = connect_database()
@@ -194,6 +297,7 @@ def get_quiz_by_id(quiz_id: str, auth: dict = Depends(verify_bearer_token)):
             is_this_me = True
         if player_id != user_id:
             is_this_me = False
+
         result = {
             "id": id,
             "title": title,

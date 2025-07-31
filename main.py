@@ -13,7 +13,11 @@ router = FastAPI()
 
 @router.get("/", tags=["Index"])
 def index_page():
-    return {"message": "This is Main Page"}
+    return {
+        "message": "QuizIt API",
+        "Backend Developer": "Ujjwal Dahal",
+        "Frontend Developer": "Dharmananda Joshi",
+    }
 
 
 router.include_router(auth_router, prefix="/auth", tags=["Authentication"])

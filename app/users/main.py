@@ -4,7 +4,7 @@ from database.connect_db import connect_database
 from services.response_handler import verify_bearer_token
 from typing import Annotated, List, Dict
 import json
-from app.users.models.quiz_model import QuizSchema
+from app.users.models.quiz_model import QuizSchema, UpdateProfileSchema
 
 router = APIRouter()
 
@@ -44,7 +44,7 @@ def get_all_users(auth: dict = Depends(verify_bearer_token)):
                 }
             )
 
-        return JSONResponse(content={"message": "Successful Response", "data": result})
+        return {"message": "Successful Response", "data": result}
 
     except Exception as e:
         if connection:
@@ -147,8 +147,10 @@ def user_page(quiz_id: str, user: dict = Depends(verify_bearer_token)):
 
     try:
         query = """
-        SELECT q.cover_photo , q.title, q.description,
-        qq.id, qq.question, qq.question_index, qq.options, qq.correct_option, qq.points, qq.duration , q.id
+        SELECT 
+        q.cover_photo , q.title, q.description,
+        qq.id, qq.question, qq.question_index, qq.options, qq.correct_option, 
+        qq.points, qq.duration , q.id
         FROM quizzes as q
         JOIN users as u ON u.id = q.creator_id
         JOIN quiz_questions as qq ON qq.quiz_id = q.id
@@ -313,6 +315,222 @@ def delete_quiz(quiz_id: str, auth: dict = Depends(verify_bearer_token)):
             connection.rollback()
 
         raise HTTPException(status_code=400, detail=str(e))
+
+    finally:
+        if cursor:
+            cursor.close()
+        if connection:
+            connection.close()
+
+
+@router.get("/profile")
+def profile_of_user(
+    auth: dict = Depends(verify_bearer_token),
+    filter: str = Query(None),
+    order: str = Query(None),
+):
+    connection = connect_database()
+    cursor = connection.cursor()
+    creator_id = auth.get("id")
+
+    try:
+        get_user_detail_query = """
+        SELECT u.full_name, u.username, u.photo, COUNT(q.id)
+        FROM users AS u
+        LEFT JOIN quizzes AS q ON q.creator_id = u.id
+        WHERE u.id = %s
+        GROUP BY u.id, u.full_name, u.username, u.photo
+        """
+
+        cursor.execute(get_user_detail_query, (creator_id,))
+        fetched_user_data = cursor.fetchone()
+
+        if not fetched_user_data:
+            raise HTTPException(status_code=404, detail="User not found")
+
+        (full_name, username, photo, quizzes_created) = fetched_user_data
+
+        filtering_list = ["newest"]
+        ordering_list = ["asc", "desc"]
+
+        if filter is None:
+            filter = "newest"
+        if order is None:
+            order = "asc"
+
+        if order.lower() not in ordering_list:
+            raise HTTPException(status_code=400, detail="Invalid ordering value")
+        if filter not in filtering_list:
+            raise HTTPException(status_code=400, detail="Invalid filtering value")
+
+        if filter == "newest":
+            filtering_criteria = "created_at"
+
+        get_quiz_description_query = f"""
+        SELECT q.id , q.cover_photo, q.title , q.description, q.created_at
+        FROM quizzes AS q
+        WHERE q.creator_id = %s
+        ORDER BY {filtering_criteria} {order.upper()}
+        """
+
+        cursor.execute(get_quiz_description_query, (creator_id,))
+        fetch_all_data = cursor.fetchall()
+
+        result = []
+
+        for data in fetch_all_data:
+            (quiz_id, cover_photo, title, description, created_at) = data
+
+            get_all_questions_query = """
+            SELECT qq.id, qq.question, qq.question_index, qq.options,
+                   qq.correct_option, qq.points, qq.duration
+            FROM quiz_questions AS qq
+            WHERE qq.quiz_id = %s
+            """
+
+            cursor.execute(get_all_questions_query, (quiz_id,))
+            fetch_all_questions = cursor.fetchall()
+
+            question_result = []
+            for qq in fetch_all_questions:
+                (
+                    id,
+                    question,
+                    question_index,
+                    options,
+                    correct_option,
+                    points,
+                    duration,
+                ) = qq
+                question_result.append(
+                    {
+                        "question_id": id,
+                        "question": question,
+                        "question_index": question_index,
+                        "options": options,
+                        "correct_option": correct_option,
+                        "points": points,
+                        "duration": duration,
+                    }
+                )
+
+            result.append(
+                {
+                    "quiz_id": quiz_id,
+                    "cover_photo": cover_photo,
+                    "title": title,
+                    "description": description,
+                    "questions": question_result,
+                    "created_at": created_at,
+                }
+            )
+
+        return {
+            "message": "Successful Response",
+            "data": {
+                "user_data": {
+                    "username": username,
+                    "full_name": full_name,
+                    "photo": photo,
+                    "quizzes": quizzes_created,
+                },
+                "quiz_data": result,
+            },
+        }
+
+    except Exception as e:
+        if connection:
+            connection.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+
+    finally:
+        if cursor:
+            cursor.close()
+        if connection:
+            connection.close()
+
+
+@router.get("/profile/edit")
+def get_profile_data_for_edit(auth: dict = Depends(verify_bearer_token)):
+    connection = connect_database()
+    cursor = connection.cursor()
+    creator_id = auth.get("id")
+
+    try:
+        get_profile_data_query = """
+        SELECT full_name , username , photo 
+        FROM users 
+        WHERE id=%s
+        """
+
+        cursor.execute(get_profile_data_query, (creator_id,))
+
+        fetched_user_data = cursor.fetchone()
+
+        if not fetched_user_data:
+            raise HTTPException(status_code=400, detail="Not Found")
+
+        (full_name, username, photo) = fetched_user_data
+
+        return {
+            "message": "Successfull Response",
+            "data": {"full_name": full_name, "username": username, "photo": photo},
+        }
+
+    except Exception as e:
+        if connection:
+            connection.rollback()
+
+        raise HTTPException(status_code=500, detail=str(e))
+
+    finally:
+        if cursor:
+            cursor.close()
+
+        if connection:
+            connection.close()
+
+
+@router.put("/profile/edit")
+def edit_profile_page(
+    update_data: UpdateProfileSchema, auth: dict = Depends(verify_bearer_token)
+):
+    connection = connect_database()
+    cursor = connection.cursor()
+    creator_id = auth.get("id")
+
+    try:
+        cursor.execute("SELECT * FROM users WHERE username=%s", (update_data.username,))
+
+        existing_username = cursor.fetchone()
+
+        if existing_username:
+            raise HTTPException(status_code=400, detail="Username already Exist")
+
+        update_user_data_query = """
+        UPDATE users
+        SET full_name = %s , username =  %s, photo = %s
+        WHERE id=%s
+        """
+
+        cursor.execute(
+            update_user_data_query,
+            (
+                update_data.full_name,
+                update_data.username,
+                update_data.photo,
+                creator_id,
+            ),
+        )
+
+        connection.commit()
+
+        return {"message": "Updated User Data Successfully"}
+
+    except Exception as e:
+        if connection:
+            connection.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
 
     finally:
         if cursor:
