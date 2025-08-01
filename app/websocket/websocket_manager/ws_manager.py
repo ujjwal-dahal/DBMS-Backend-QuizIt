@@ -61,7 +61,6 @@ class ConnectionManager:
             try:
                 await connection.send_json(payload)
             except Exception:
-                # Remove dead connections
                 to_remove.append(connection)
         for connection in to_remove:
             self.disconnect(connection)

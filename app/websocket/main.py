@@ -8,6 +8,7 @@ from fastapi import (
 )
 from datetime import datetime, timezone
 from starlette.websockets import WebSocketState
+import json
 
 # Project Imports
 from services.response_handler import verify_bearer_token, verify_bearer_token_manual
@@ -19,6 +20,7 @@ from app.websocket.models.output_response import (
     AnswerResponseSchema,
     LeaderboardResponse,
 )
+from websocket.helper.helper_functions import process_answer_and_update_leaderboard
 
 app = APIRouter()
 manager = ConnectionManager()
@@ -148,7 +150,26 @@ async def websocket_endpoint(websocket: WebSocket, room_code: str):
 
         while True:
             data = await websocket.receive_text()
-            await manager.broadcast("chat", room_code, f"{username}: {data}")
+            try:
+                message = json.loads(data)
+            except json.JSONDecodeError:
+                await manager.broadcast("chat", room_code, f"{username}: {data}")
+                continue
+
+            msg_type = message.get("type")
+            msg_data = message.get("data")
+
+            if msg_type == "chat":
+                await manager.broadcast("chat", room_code, f"{username}: {msg_data}")
+
+            elif msg_type == "answer":
+                result = await process_answer_and_update_leaderboard(
+                    user_id, room_code, msg_data
+                )
+                await websocket.send_json({"type": "answer_ack", "data": result})
+
+            else:
+                pass
 
     except WebSocketDisconnect:
         manager.disconnect(websocket)
@@ -240,7 +261,6 @@ async def submit_answer(
 
         connection.commit()
 
-        # Fetch updated leaderboard
         cursor.execute(
             """
             SELECT u.id, u.full_name, rp.score, u.photo
