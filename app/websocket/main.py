@@ -14,7 +14,11 @@ from services.response_handler import verify_bearer_token, verify_bearer_token_m
 from database.connect_db import connect_database
 from services.room_code import room_code_generator
 from app.websocket.websocket_manager.ws_manager import ConnectionManager
-from app.websocket.models.models import AnswerData
+from app.websocket.models.models import AnswerSchema
+from app.websocket.models.output_response import (
+    AnswerResponseSchema,
+    LeaderboardResponse,
+)
 
 app = APIRouter()
 manager = ConnectionManager()
@@ -24,6 +28,7 @@ manager = ConnectionManager()
 def room_code_transfer(
     quiz_id: str = Query(...), auth: dict = Depends(verify_bearer_token)
 ):
+
     connection = connect_database()
     cursor = connection.cursor()
     creator_id = auth.get("id")
@@ -63,13 +68,15 @@ def check_user(
     user_id = auth.get("id")
 
     try:
-        cursor.execute("SELECT id FROM rooms WHERE room_code = %s", (room_code,))
+        cursor.execute(
+            "SELECT id, quiz_id FROM rooms WHERE room_code = %s", (room_code,)
+        )
         room = cursor.fetchone()
 
         if not room:
             raise HTTPException(status_code=404, detail="Room not found")
 
-        room_id = room[0]
+        room_id, quiz_id = room
 
         cursor.execute(
             "SELECT id FROM room_participants WHERE room_id = %s AND user_id = %s",
@@ -82,6 +89,7 @@ def check_user(
                 "message": "Already joined",
                 "participant_id": existing[0],
                 "is_joined": True,
+                "quiz_id": quiz_id,
             }
 
         joined_at = datetime.now(timezone.utc)
@@ -96,6 +104,7 @@ def check_user(
             "message": "joined",
             "participant_id": participant_id,
             "is_joined": True,
+            "quiz_id": quiz_id,
         }
 
     except Exception as e:
@@ -135,7 +144,7 @@ async def websocket_endpoint(websocket: WebSocket, room_code: str):
 
         username = result[0]
 
-        await manager.connect(websocket, room_code, username)
+        await manager.connect(websocket, room_code, username, user_id)
 
         while True:
             data = await websocket.receive_text()
@@ -158,9 +167,9 @@ async def start_quiz(room_code: str, auth: dict = Depends(verify_bearer_token)):
 
 
 @app.post("/{room_code}/game")
-def submit_answer(
+async def submit_answer(
     room_code: str,
-    answer_data: AnswerData,
+    answer_data: AnswerSchema,
     auth: dict = Depends(verify_bearer_token),
 ):
     connection = connect_database()
@@ -174,7 +183,7 @@ def submit_answer(
         room = cursor.fetchone()
         if not room:
             raise HTTPException(status_code=400, detail="Invalid room code")
-        (room_id, quiz_id) = room
+        room_id, quiz_id = room
 
         cursor.execute(
             "SELECT id FROM room_participants WHERE user_id = %s AND room_id = %s",
@@ -195,11 +204,7 @@ def submit_answer(
         correct_option = result[0]
 
         selected_option = answer_data.selected_option
-        if str(correct_option) == str(selected_option):
-            is_correct = True
-
-        if str(correct_option) != str(selected_option):
-            is_correct = False
+        is_correct = str(correct_option) == str(selected_option)
 
         if is_correct:
             cursor.execute(
@@ -209,7 +214,7 @@ def submit_answer(
 
         cursor.execute(
             "INSERT INTO room_questions (room_id, question_id, shown_at) VALUES (%s, %s, %s) RETURNING id",
-            (room_id, answer_data.question_id, datetime.now()),
+            (room_id, answer_data.question_id, datetime.now(timezone.utc)),
         )
         question_show_id = cursor.fetchone()[0]
 
@@ -226,7 +231,7 @@ def submit_answer(
                 room_id,
                 participant_id,
                 answer_data.question_id,
-                answer_data.selected_option,
+                selected_option,
                 is_correct,
                 answered_at,
             ),
@@ -234,6 +239,32 @@ def submit_answer(
         answer_id = cursor.fetchone()[0]
 
         connection.commit()
+
+        # Fetch updated leaderboard
+        cursor.execute(
+            """
+            SELECT u.id, u.full_name, rp.score, u.photo
+            FROM room_participants rp
+            JOIN users u ON rp.user_id = u.id
+            WHERE rp.room_id = %s
+            ORDER BY rp.score DESC
+            """,
+            (room_id,),
+        )
+        leaderboard_raw = cursor.fetchall()
+
+        leaderboard_data = [
+            {
+                "id": uid,
+                "name": name,
+                "image": photo,
+                "rank": idx + 1,
+                "totalPoints": score,
+            }
+            for idx, (uid, name, score, photo) in enumerate(leaderboard_raw)
+        ]
+
+        await manager.send_leaderboard(room_code, leaderboard_data)
 
         return {
             "answer_id": answer_id,
@@ -249,52 +280,7 @@ def submit_answer(
         connection.close()
 
 
-@app.get("/{room_code}/{quiz_id}/leaderboard")
-def leaderboard(
-    room_code: str, quiz_id: str, auth: dict = Depends(verify_bearer_token)
-):
-    connection = connect_database()
-    cursor = connection.cursor()
-
-    try:
-
-        cursor.execute("SELECT id FROM rooms WHERE room_code = %s", (room_code,))
-        room = cursor.fetchone()
-        if not room:
-            raise HTTPException(status_code=404, detail="Room not found")
-        room_id = room[0]
-
-        cursor.execute(
-            """
-            SELECT u.full_name, rp.score, u.photo, u.id
-            FROM room_participants AS rp
-            JOIN users AS u ON rp.user_id = u.id
-            WHERE rp.room_id = %s
-            ORDER BY rp.score DESC
-            """,
-            (room_id,),
-        )
-        fetched_data = cursor.fetchall()
-
-        if not fetched_data:
-            raise HTTPException(status_code=404, detail="No participants found")
-
-        user_scores = [
-            {"id": id, "name": name, "image": image, "rank": idx + 1, "score": score}
-            for idx, (name, score, image, id) in enumerate(fetched_data)
-        ]
-
-        return {"message": "LeaderBoard Score", "user_score": user_scores}
-
-    except Exception as e:
-        connection.rollback()
-        raise HTTPException(status_code=500, detail=str(e))
-    finally:
-        cursor.close()
-        connection.close()
-
-
-@app.get("/{room_code}/{quiz_id}/{user_id}/result")
+@app.get("/{room_code}/{quiz_id}/{user_id}/result", response_model=AnswerResponseSchema)
 def each_user_result(
     room_code: str,
     quiz_id: str,
@@ -376,6 +362,56 @@ def each_user_result(
         connection.rollback()
         raise HTTPException(status_code=500, detail=str(e))
 
+    finally:
+        cursor.close()
+        connection.close()
+
+
+@app.get("/{room_code}/{quiz_id}/leaderboard", response_model=LeaderboardResponse)
+def leaderboard(
+    room_code: str, quiz_id: str, auth: dict = Depends(verify_bearer_token)
+):
+    connection = connect_database()
+    cursor = connection.cursor()
+
+    try:
+        cursor.execute("SELECT id FROM rooms WHERE room_code = %s", (room_code,))
+        room = cursor.fetchone()
+        if not room:
+            raise HTTPException(status_code=404, detail="Room not found")
+        room_id = room[0]
+
+        cursor.execute(
+            """
+            SELECT u.full_name, rp.score, u.photo, u.id
+            FROM room_participants AS rp
+            JOIN users AS u ON rp.user_id = u.id
+            WHERE rp.room_id = %s
+            ORDER BY rp.score DESC
+            """,
+            (room_id,),
+        )
+        fetched_data = cursor.fetchall()
+
+        if not fetched_data:
+            raise HTTPException(status_code=404, detail="No participants found")
+
+        user_scores = [
+            {
+                "id": id,
+                "name": name,
+                "image": image,
+                "rank": idx + 1,
+                "totalPoints": score,
+            }
+            for idx, (name, score, image, id) in enumerate(fetched_data)
+        ]
+
+        return {"message": "LeaderBoard Score", "user_score": user_scores}
+
+    except Exception as e:
+        connection.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
     finally:
         cursor.close()
         connection.close()
