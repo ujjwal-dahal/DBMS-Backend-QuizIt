@@ -423,6 +423,7 @@ def leaderboard(
                 "image": image,
                 "rank": idx + 1,
                 "totalPoints": score,
+                "score": score,
             }
             for idx, (name, score, image, id) in enumerate(fetched_data)
         ]
