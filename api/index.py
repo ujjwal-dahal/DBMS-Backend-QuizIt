@@ -8,6 +8,8 @@ from app.users.main import router as user_router
 from app.quiz.main import app as quiz_app
 from app.websocket.main import app as websocket_app
 
+from mangum import Mangum
+
 router = FastAPI()
 
 
@@ -34,3 +36,6 @@ router.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Handler for Vercel Lambda
+handler = Mangum(router)

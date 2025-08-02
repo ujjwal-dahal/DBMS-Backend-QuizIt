@@ -14,7 +14,6 @@ from services.jwt_handler import (
     get_refresh_token,
     renew_access_token,
 )
-from jose import jwt
 from database.connect_db import connect_database
 from services.password_hashing import hash_password, match_password
 from services.response_handler import verify_bearer_token
