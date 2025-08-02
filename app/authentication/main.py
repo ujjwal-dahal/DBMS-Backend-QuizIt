@@ -27,7 +27,7 @@ load_dotenv()
 
 app = APIRouter()
 
-ACCESS_TOKEN_EXPIRY = 60  # 60 Minutes
+ACCESS_TOKEN_EXPIRY = 120  # 120 Minutes
 REFRESH_TOKEN_EXPIRY = 1  # 1 Days
 
 VERIFY_MAIL_EXPIRY = 5

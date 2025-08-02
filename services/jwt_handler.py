@@ -8,10 +8,10 @@ load_dotenv()
 
 ALGORITHM = os.getenv("JWT_ALGORITHM")
 SECRET_KEY = os.getenv("JWT_SECRET_KEY")
-ACCESS_TOKEN_EXPIRY = 25
+ACCESS_TOKEN_EXPIRY = 120
 
 
-def get_access_token(user_info: dict, expiry_minutes: datetime):
+def get_access_token(user_info: dict, expiry_minutes: int):
     user_data = user_info.copy()
 
     expiry_time = datetime.now(timezone.utc) + timedelta(minutes=expiry_minutes)
@@ -22,7 +22,7 @@ def get_access_token(user_info: dict, expiry_minutes: datetime):
     return access_token
 
 
-def get_refresh_token(user_info: dict, expiry_time: datetime):
+def get_refresh_token(user_info: dict, expiry_time: int):
     user_data = user_info.copy()
 
     expiry_time = datetime.now(timezone.utc) + timedelta(days=expiry_time)
