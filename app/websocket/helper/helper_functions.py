@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from websocket.websocket_manager.ws_manager import ConnectionManager
+from app.websocket.websocket_manager.ws_manager import ConnectionManager
 from database.connect_db import connect_database
 
 manager = ConnectionManager()

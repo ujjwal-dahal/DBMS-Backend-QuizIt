@@ -20,7 +20,7 @@ from app.websocket.models.output_response import (
     AnswerResponseSchema,
     LeaderboardResponse,
 )
-from websocket.helper.helper_functions import process_answer_and_update_leaderboard
+from app.websocket.helper.helper_functions import process_answer_and_update_leaderboard
 
 app = APIRouter()
 manager = ConnectionManager()
