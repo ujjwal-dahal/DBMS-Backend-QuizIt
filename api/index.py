@@ -10,10 +10,10 @@ from app.websocket.main import app as websocket_app
 
 from mangum import Mangum
 
-router = FastAPI()
+app = FastAPI()
 
 
-@router.get("/", tags=["Index"])
+@app.get("/", tags=["Index"])
 def index_page():
     return {
         "message": "QuizIt API",
@@ -22,20 +22,18 @@ def index_page():
     }
 
 
-router.include_router(auth_router, prefix="/auth", tags=["Authentication"])
-router.include_router(quiz_app, prefix="/quiz", tags=["Quiz"])
-router.include_router(user_router, prefix="/user", tags=["User"])
-router.include_router(websocket_app, prefix="/room", tags=["WebSocket"])
+app.include_router(auth_router, prefix="/auth", tags=["Authentication"])
+app.include_router(quiz_app, prefix="/quiz", tags=["Quiz"])
+app.include_router(user_router, prefix="/user", tags=["User"])
+app.include_router(websocket_app, prefix="/room", tags=["WebSocket"])
 
-
-# Middleware to Handle CORs Headers
-router.add_middleware(
+app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Handler for Vercel Lambda
-handler = Mangum(router)
+# ✅ Mangum handler for Vercel
+handler = Mangum(app)
