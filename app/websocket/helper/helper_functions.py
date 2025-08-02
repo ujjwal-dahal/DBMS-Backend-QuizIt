@@ -40,7 +40,7 @@ async def process_answer_and_update_leaderboard(
         answered_at = datetime.fromisoformat(answered_at_str.replace("Z", "+00:00"))
 
         cursor.execute(
-            "SELECT correct_option FROM quiz_questions WHERE question_index = %s AND quiz_id = %s",
+            "SELECT correct_option FROM quiz_questions WHERE id = %s AND quiz_id = %s",
             (question_id, quiz_id),
         )
         result = cursor.fetchone()
@@ -64,9 +64,11 @@ async def process_answer_and_update_leaderboard(
 
         cursor.execute(
             """
-            INSERT INTO room_answers (room_id, participant_id, question_id, selected_option, is_correct, answered_at)
-            VALUES (%s, %s, %s, %s, %s, %s) RETURNING id
-        """,
+            INSERT INTO room_answers (
+                room_id, participant_id, question_id,
+                selected_option, is_correct, answered_at
+            ) VALUES (%s, %s, %s, %s, %s, %s) RETURNING id
+            """,
             (
                 room_id,
                 participant_id,
@@ -87,7 +89,7 @@ async def process_answer_and_update_leaderboard(
             JOIN users u ON rp.user_id = u.id
             WHERE rp.room_id = %s
             ORDER BY rp.score DESC
-        """,
+            """,
             (room_id,),
         )
         leaderboard_raw = cursor.fetchall()
