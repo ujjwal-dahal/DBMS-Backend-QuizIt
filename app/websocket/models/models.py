@@ -4,7 +4,7 @@ from pydantic import BaseModel
 
 
 class AnswerSchema(BaseModel):
-    question_id: int
-    selected_option: str
+    question_index: int
+    selected_option: int
     point: int
-    answered_at: Optional[datetime] = None
+    answered_at: datetime

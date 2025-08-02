@@ -216,13 +216,17 @@ async def submit_answer(
         participant_id = participant[0]
 
         cursor.execute(
-            "SELECT correct_option FROM quiz_questions WHERE question_index = %s AND quiz_id = %s",
-            (answer_data.question_id, quiz_id),
+            """
+            SELECT id, correct_option 
+            FROM quiz_questions 
+            WHERE question_index = %s AND quiz_id = %s
+            """,
+            (answer_data.question_index, quiz_id),
         )
-        result = cursor.fetchone()
-        if not result:
+        question = cursor.fetchone()
+        if not question:
             raise HTTPException(status_code=400, detail="Question not found")
-        correct_option = result[0]
+        question_id, correct_option = question
 
         selected_option = answer_data.selected_option
         is_correct = str(correct_option) == str(selected_option)
@@ -235,12 +239,11 @@ async def submit_answer(
 
         cursor.execute(
             "INSERT INTO room_questions (room_id, question_id, shown_at) VALUES (%s, %s, %s) RETURNING id",
-            (room_id, answer_data.question_id, datetime.now(timezone.utc)),
+            (room_id, question_id, datetime.now(timezone.utc)),
         )
         question_show_id = cursor.fetchone()[0]
 
         answered_at = answer_data.answered_at
-
         cursor.execute(
             """
             INSERT INTO room_answers (
@@ -251,7 +254,7 @@ async def submit_answer(
             (
                 room_id,
                 participant_id,
-                answer_data.question_id,
+                question_id,
                 selected_option,
                 is_correct,
                 answered_at,
