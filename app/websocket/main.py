@@ -48,8 +48,21 @@ def room_code_transfer(
         if not fetched_id:
             raise HTTPException(status_code=500, detail="Something went wrong")
 
+        cursor.execute("SELECT username FROM users WHERE id=%s", (creator_id,))
+
+        fetched_username = cursor.fetchone()
+
+        if not fetched_username:
+            raise HTTPException(status_code=500, detail="Something went wrong")
+
+        (room_host_name,) = fetched_username
+
         connection.commit()
-        return {"room_code": room_code, "redirect": f"room/{room_code}/admin"}
+        return {
+            "room_code": room_code,
+            "room_host": room_host_name,
+            "redirect": f"room/{room_code}/admin",
+        }
 
     except Exception as e:
         connection.rollback()
@@ -88,7 +101,7 @@ def check_user(
 
         if existing:
             return {
-                "message": "Already joined",
+                "message": "Already Joined",
                 "participant_id": existing[0],
                 "is_joined": True,
                 "quiz_id": quiz_id,
@@ -103,7 +116,7 @@ def check_user(
         connection.commit()
 
         return {
-            "message": "joined",
+            "message": "Joined",
             "participant_id": participant_id,
             "is_joined": True,
             "quiz_id": quiz_id,
@@ -183,8 +196,39 @@ async def websocket_endpoint(websocket: WebSocket, room_code: str):
 
 @app.post("/start-quiz/{room_code}")
 async def start_quiz(room_code: str, auth: dict = Depends(verify_bearer_token)):
-    await manager.broadcast("quiz_started", room_code)
-    return {"message": "Quiz started and broadcasted to all participants"}
+    user_id = auth.get("id")
+
+    connection = connect_database()
+    cursor = connection.cursor()
+
+    try:
+        cursor.execute(
+            "SELECT id, created_by FROM rooms WHERE room_code = %s",
+            (room_code,),
+        )
+        room = cursor.fetchone()
+
+        if not room:
+            raise HTTPException(status_code=404, detail="Room not found")
+
+        room_id, room_host_id = room
+
+        if user_id != room_host_id:
+            raise HTTPException(
+                status_code=403, detail="Only room host can start the quiz"
+            )
+
+        await manager.broadcast("quiz_started", room_code)
+
+        return {"message": "Quiz Started By Room Host"}
+
+    except Exception as e:
+        connection.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+
+    finally:
+        cursor.close()
+        connection.close()
 
 
 @app.post("/{room_code}/game")
