@@ -6,14 +6,20 @@ from dotenv import load_dotenv
 load_dotenv()
 
 
-async def send_email(subject: str, to_whom: str, body: str):
+async def send_email(subject: str, to_whom: str, body: str, is_html: bool = False):
     message = EmailMessage()
-    print(message)
 
     message["From"] = os.getenv("EMAIL_USERNAME")
     message["To"] = to_whom
     message["Subject"] = subject
-    message.set_content(body)
+
+    if is_html:
+        message.set_content(
+            "This is an HTML email. Please view in an HTML-compatible email client."
+        )
+        message.add_alternative(body, subtype="html")
+    else:
+        message.set_content(body)
 
     await aiosmtplib.send(
         message,

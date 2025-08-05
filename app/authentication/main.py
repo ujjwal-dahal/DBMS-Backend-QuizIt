@@ -23,6 +23,10 @@ import os
 from services.generate_token import generate_otp
 from datetime import datetime, timezone, timedelta
 
+# Project Imports
+from messages.verify_email import otp_email_body
+from messages.reset_password import reset_password_email_body
+
 load_dotenv()
 
 app = APIRouter()
@@ -84,8 +88,9 @@ async def signup_user(user: SignUpSchema):
 
         otp = generate_otp()
 
-        email_body = f"To Verify Your Email Enter This OTP : {otp}"
-        await send_email(subject="Verify Email", to_whom=email, body=email_body)
+        email_body = otp_email_body(otp=otp)
+        subject = "Verify Your Email"
+        await send_email(subject=subject, to_whom=email, body=email_body, is_html=True)
 
         verify_mail_expiry_time = datetime.now(timezone.utc) + timedelta(
             minutes=VERIFY_MAIL_EXPIRY
@@ -182,8 +187,9 @@ async def renew_verify_email_token(data: RenewVerifyEmailToken):
         cursor.execute("DELETE FROM verify_email_token WHERE user_id=%s", (user_id,))
         connection.commit()
 
-        email_body = f"To Verify Your Email Enter This OTP : {otp}"
-        await send_email(subject="Verify Email", to_whom=email, body=email_body)
+        email_body = otp_email_body(otp)
+        subject = "Verify Your Email"
+        await send_email(subject=subject, to_whom=email, body=email_body, is_html=True)
 
         verify_mail_expiry_time = datetime.now(timezone.utc) + timedelta(
             minutes=VERIFY_MAIL_EXPIRY
@@ -298,8 +304,9 @@ async def forgot_password(data: ForgotPasswordSchema):
 
         connection.commit()
 
-        email_body = f"To Reset Your Password Enter This Token : {otp}"
-        await send_email(subject="Reset Password", to_whom=email, body=email_body)
+        email_body = reset_password_email_body(token=otp)
+        subject = "Reset Your Password"
+        await send_email(subject=subject, to_whom=email, body=email_body, is_html=True)
 
         return {"message": "Token Has Sent to Your Email"}
     except Exception as e:
