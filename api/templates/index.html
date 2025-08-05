@@ -2,119 +2,141 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <title>QuizIt API – DBMS Project</title>
+    <title>QuizIt Dev Cards – DBMS Project</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <!-- Google Font -->
     <link
-      href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;700&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&display=swap"
       rel="stylesheet"
     />
-    <style>
-      * {
-        margin: 0;
-        padding: 0;
-        box-sizing: border-box;
-      }
 
+    <style>
       body {
         background-color: #0d1117;
-        font-family: "Fira Code", monospace;
         color: #c9d1d9;
-        height: 100vh;
+        font-family: "Fira Code", monospace;
+        padding: 60px 20px;
+        margin: 0;
+        text-align: center;
+      }
+
+      .main-title {
+        font-size: 2.8rem;
+        color: #00ffcc;
+        margin-bottom: 10px;
+        letter-spacing: 1px;
+        font-weight: 700;
+      }
+
+      .sub-title {
+        font-size: 1.3rem;
+        color: #ffaa33;
+        margin-bottom: 40px;
+        letter-spacing: 0.7px;
+      }
+
+      .cards {
         display: flex;
         justify-content: center;
-        align-items: center;
-        padding: 40px;
+        flex-wrap: wrap;
+        gap: 40px;
       }
 
-      .container {
+      .card {
         background-color: #161b22;
-        border: 1px solid #30363d;
-        border-radius: 12px;
-        padding: 40px 32px;
-        max-width: 680px;
-        width: 100%;
-        box-shadow: 0 0 12px rgba(0, 255, 204, 0.1);
-        animation: fadeIn 1.2s ease;
+        padding: 30px;
+        border-radius: 15px;
+        width: 300px;
+        box-shadow: 0 4px 20px rgba(0, 255, 204, 0.08);
+        transition: transform 0.3s ease;
       }
 
-      h1 {
-        font-size: 2.4rem;
-        color: #00ffe1;
-        margin-bottom: 12px;
-        text-shadow: 0 0 2px #00ffe1;
+      .card:hover {
+        transform: translateY(-5px);
       }
 
-      h2 {
-        font-size: 1.2rem;
-        color: #facc15;
-        margin-bottom: 28px;
-        opacity: 0.9;
+      .card img {
+        width: 100px;
+        height: 100px;
+        object-fit: cover;
+        border-radius: 50%;
+        border: 3px solid #3aaf7c;
       }
 
-      .info {
-        font-size: 1.05rem;
-        margin: 10px 0;
-        color: #d1d5db;
+      .name {
+        font-size: 1.4rem;
+        color: #00ffcc;
+        font-weight: bold;
+        margin-top: 12px;
       }
 
-      .label {
-        color: #34d399;
-        font-weight: 500;
+      .role {
+        font-size: 1rem;
+        margin-bottom: 6px;
+        color: #999;
+      }
+
+      .dept {
+        font-size: 0.95rem;
+        color: #cccccc;
+      }
+
+      .project-info {
+        margin-top: 60px;
+        background-color: #161b22;
+        padding: 25px;
+        border-radius: 10px;
+        display: inline-block;
+        text-align: left;
+        box-shadow: 0 0 10px rgba(0, 255, 204, 0.05);
+      }
+
+      .project-info p {
+        margin: 8px 0;
+        font-size: 0.95rem;
+        color: #cccccc;
+      }
+
+      .project-info span {
+        font-weight: bold;
+        color: #ffaa33;
       }
 
       .credit {
-        margin-top: 36px;
-        font-size: 0.85rem;
-        text-align: center;
-        color: #8899a6;
-      }
-
-      .credit::before {
-        content: "// ";
-        color: #00ffe1;
-      }
-
-      @keyframes fadeIn {
-        from {
-          opacity: 0;
-          transform: scale(0.98) translateY(10px);
-        }
-        to {
-          opacity: 1;
-          transform: scale(1) translateY(0);
-        }
-      }
-
-      @media (max-width: 480px) {
-        h1 {
-          font-size: 2rem;
-        }
-
-        .container {
-          padding: 30px 20px;
-        }
+        margin-top: 30px;
+        font-size: 0.9rem;
+        color: #888;
       }
     </style>
   </head>
+
   <body>
-    <div class="container">
-      <h1>{{ message }}</h1>
-      <h2>< DBMS Final Project – QuizIt API /></h2>
+    <div class="main-title">QuizIt</div>
+    <div class="sub-title">< DBMS Final Project /></div>
 
-      <p class="info">
-        <span class="label">Backend Developer:</span> {{ backend }}
-      </p>
-      <p class="info">
-        <span class="label">Frontend Developer:</span> {{ frontend }}
-      </p>
-      <p class="info">
-        <span class="label">Institute:</span> IOE Thapathali Campus
-      </p>
-      <p class="info"><span class="label">Year:</span> 3rd Year</p>
-      <p class="info">
-        <span class="label">Subject Teacher:</span> Rajad Shakya
-      </p>
+    <div class="cards">
+      <div class="card">
+        <img src="https://github.com/ujjwal-dahal.png" alt="Ujjwal Dahal" />
+        <div class="name">Ujjwal Dahal</div>
+        <div class="role">Backend Developer</div>
+        <div class="dept">Dept. of Electronics Engineering</div>
+      </div>
 
-      <div class="credit">Developed By Committed Coders From Nepal 🇳🇵</div>
+      <div class="card">
+        <img src="https://github.com/ManishJoc14.png" alt="Dharmananda Joshi" />
+        <div class="name">Dharmananda Joshi</div>
+        <div class="role">Frontend Developer</div>
+        <div class="dept">Dept. of Electronics Engineering</div>
+      </div>
     </div>
+
+    <div class="project-info">
+      <p><span>College:</span> IOE Thapathali Campus</p>
+      <p><span>Year:</span> 3rd Year</p>
+      <p><span>Subject Teacher:</span> Rajad Shakya</p>
+    </div>
+
+    <div class="credit">Made by Dedicated Students from Nepal 🇳🇵</div>
   </body>
 </html>
