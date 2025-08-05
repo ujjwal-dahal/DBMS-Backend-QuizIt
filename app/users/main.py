@@ -425,6 +425,24 @@ def profile_of_user(
                 }
             )
 
+        follower_count_query = """
+                SELECT COUNT(*) AS follower_count
+                FROM follows
+                WHERE following_id = %s
+                """
+        cursor.execute(follower_count_query, (creator_id,))
+        follower_count = cursor.fetchone()[0]
+
+        following_count_query = """
+        SELECT COUNT(*) AS following_count
+        FROM follows
+        WHERE follower_id =%s
+        """
+
+        cursor.execute(following_count_query, (creator_id,))
+
+        following_count = cursor.fetchone()[0]
+
         return {
             "message": "Successful Response",
             "data": {
@@ -433,6 +451,8 @@ def profile_of_user(
                     "full_name": full_name,
                     "photo": photo,
                     "quizzes": quizzes_created,
+                    "follower": follower_count,
+                    "following": following_count,
                 },
                 "quiz_data": result,
             },

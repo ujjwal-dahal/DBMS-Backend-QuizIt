@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>QuizIt API – DBMS Project</title>
+    <style>
+      body {
+        background-color: #0d1117;
+        color: #c9d1d9;
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        padding: 50px;
+        text-align: center;
+        margin: 0;
+      }
+
+      .container {
+        background-color: #161b22;
+        padding: 45px 30px;
+        border-radius: 12px;
+        display: inline-block;
+        box-shadow: 0 0 20px rgba(0, 255, 204, 0.1);
+        animation: fadeIn 1.2s ease-in-out;
+        max-width: 600px;
+      }
+
+      h1 {
+        color: #00ffcc; /* Keep the green */
+        font-size: 2.8rem;
+        margin-bottom: 10px;
+        text-shadow: none; /* Glow removed */
+      }
+
+      h2 {
+        color: #ffaa33; /* Changed from sky blue to warm orange */
+        font-size: 1.3rem;
+        margin-bottom: 25px;
+        opacity: 0.95;
+        letter-spacing: 0.5px;
+      }
+
+      .info {
+        font-size: 1.1rem;
+        margin: 12px 0;
+      }
+
+      .label {
+        color: #f5a623; /* Changed label color to rich orange-yellow */
+        font-weight: 600;
+      }
+
+      .credit {
+        margin-top: 30px;
+        font-size: 0.85rem;
+        color: #8b949e;
+      }
+
+      /* Animations */
+      @keyframes fadeIn {
+        from {
+          opacity: 0;
+          transform: translateY(-10px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>{{ message }}</h1>
+      <h2>Database Management System (DBMS) Project</h2>
+
+      <p class="info">
+        <span class="label">Backend Developer:</span> {{ backend }}
+      </p>
+      <p class="info">
+        <span class="label">Frontend Developer:</span> {{ frontend }}
+      </p>
+      <p class="info">
+        <span class="label">Institute:</span> IOE Thapathali Campus
+      </p>
+      <p class="info"><span class="label">Year:</span> 3rd Year</p>
+      <p class="info">
+        <span class="label">Subject Teacher:</span> Rajad Shakya
+      </p>
+
+      <div class="credit">Made with ❤️ in Nepal 🇳🇵</div>
+    </div>
+  </body>
+</html>

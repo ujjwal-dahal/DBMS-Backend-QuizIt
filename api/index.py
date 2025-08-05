@@ -1,6 +1,10 @@
 # FastAPI Imports
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.templating import Jinja2Templates
+from fastapi.requests import Request
+from fastapi.responses import HTMLResponse
+
 
 # Projects Import
 from app.authentication.main import app as auth_router
@@ -9,16 +13,30 @@ from app.quiz.main import app as quiz_app
 from app.websocket.main import app as websocket_app
 from app.features.main import app as features_app
 
+
+# Environment Variable Imports
+from dotenv import load_dotenv
+import os
+
+load_dotenv()
+
 app = FastAPI()
 
+templates = Jinja2Templates(directory="api/templates")
+QUIZIT_URL = os.getenv("QUIZIT_URL")
 
-@app.get("/", tags=["Index"])
-def index_page():
-    return {
-        "message": "QuizIt API",
-        "Backend Developer": "Ujjwal Dahal",
-        "Frontend Developer": "Dharmananda Joshi",
-    }
+
+@app.get("/", response_class=HTMLResponse, tags=["Index"])
+def index_page(request: Request):
+    return templates.TemplateResponse(
+        "index.html",
+        {
+            "request": request,
+            "message": "QuizIt API",
+            "backend": "Ujjwal Dahal",
+            "frontend": "Dharmananda Joshi",
+        },
+    )
 
 
 app.include_router(auth_router, prefix="/auth", tags=["Authentication"])
@@ -29,7 +47,7 @@ app.include_router(features_app, tags=["Features"])
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[QUIZIT_URL],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
