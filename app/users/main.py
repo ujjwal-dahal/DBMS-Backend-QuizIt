@@ -520,29 +520,41 @@ def edit_profile_page(
     creator_id = auth.get("id")
 
     try:
-        cursor.execute("SELECT * FROM users WHERE username=%s", (update_data.username,))
+        if update_data.username:
+            cursor.execute(
+                "SELECT * FROM users WHERE username=%s", (update_data.username,)
+            )
+            existing_username = cursor.fetchone()
+            if existing_username:
+                raise HTTPException(status_code=400, detail="Username already exists")
 
-        existing_username = cursor.fetchone()
+        fields = []
+        values = []
 
-        if existing_username:
-            raise HTTPException(status_code=400, detail="Username already Exist")
+        if update_data.full_name is not None:
+            fields.append("full_name = %s")
+            values.append(update_data.full_name)
 
-        update_user_data_query = """
+        if update_data.username is not None:
+            fields.append("username = %s")
+            values.append(update_data.username)
+
+        if update_data.photo is not None:
+            fields.append("photo = %s")
+            values.append(update_data.photo)
+
+        if not fields:
+            raise HTTPException(status_code=400, detail="No fields provided for update")
+
+        values.append(creator_id)
+
+        update_query = f"""
         UPDATE users
-        SET full_name = %s , username =  %s, photo = %s
-        WHERE id=%s
+        SET {', '.join(fields)}
+        WHERE id = %s
         """
 
-        cursor.execute(
-            update_user_data_query,
-            (
-                update_data.full_name,
-                update_data.username,
-                update_data.photo,
-                creator_id,
-            ),
-        )
-
+        cursor.execute(update_query, tuple(values))
         connection.commit()
 
         return {"message": "Updated User Data Successfully"}

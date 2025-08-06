@@ -22,6 +22,6 @@ class QuizSchema(BaseModel):
 
 
 class UpdateProfileSchema(BaseModel):
-    full_name: Annotated[str, Field(..., example="Full Name of User")]
-    username: Annotated[str, Field(..., example="Username of User")]
-    photo: Annotated[str, Field(..., example="Photo of User")]
+    full_name: Optional[str] = Field(default=None, example="Full Name of User")
+    username: Optional[str] = Field(default=None, example="Username of User")
+    photo: Optional[str] = Field(default=None, example="Photo of User")

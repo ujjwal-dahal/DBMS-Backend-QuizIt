@@ -65,11 +65,11 @@ def invite_user_list(auth: dict = Depends(verify_bearer_token)):
     try:
 
         get_all_user_query = """
-    SELECT u.id , u.username , u.photo FROM users AS u
-    JOIN follows AS f1 ON f1.follower_id = u.id
-    JOIN follows AS f2 ON f2.following_id = u.id
-    WHERE f1.following_id = %s AND f2.follower_id=%s
-    """
+            SELECT u.id , u.username , u.photo FROM users AS u
+            JOIN follows AS f1 ON f1.follower_id = u.id
+            JOIN follows AS f2 ON f2.following_id = u.id
+            WHERE f1.following_id = %s AND f2.follower_id=%s
+            """
 
         cursor.execute(get_all_user_query, (user_id, user_id))
 
