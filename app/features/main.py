@@ -58,32 +58,29 @@ def follow_user(data: FollowSchema, auth: dict = Depends(verify_bearer_token)):
 
 @app.get("/invite-user-list", response_model=InviteOutputSchema)
 def invite_user_list(auth: dict = Depends(verify_bearer_token)):
-
     connect = connect_database()
     cursor = connect.cursor()
     user_id = auth.get("id")
-    try:
 
+    try:
         get_all_user_query = """
-            SELECT u.id , u.username , u.photo FROM users AS u
+            SELECT u.id, u.username, u.photo FROM users AS u
             JOIN follows AS f1 ON f1.follower_id = u.id
             JOIN follows AS f2 ON f2.following_id = u.id
-            WHERE f1.following_id = %s AND f2.follower_id=%s
-            """
-
+            WHERE f1.following_id = %s AND f2.follower_id = %s
+        """
         cursor.execute(get_all_user_query, (user_id, user_id))
-
         fetch_all_user = cursor.fetchall()
+
         if not fetch_all_user:
-            raise HTTPException(status_code=404, detail="Not Found")
+            return {"message": "Successful Response", "data": []}
 
         result = []
-
-        for data in list(fetch_all_user):
+        for data in fetch_all_user:
             (user_id, username, photo) = data
             result.append({"user_id": user_id, "username": username, "image": photo})
 
-        return {"message": "Successfull Response", "data": result}
+        return {"message": "Successful Response", "data": result}
 
     except Exception as e:
         connect.rollback()
