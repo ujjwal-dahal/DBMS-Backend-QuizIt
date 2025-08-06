@@ -273,18 +273,19 @@ def get_quiz_by_id(quiz_id: str, auth: dict = Depends(verify_bearer_token)):
     connection = connect_database()
     cursor = connection.cursor()
     user_id = auth.get("id")
+
     try:
         query = """
-        SELECT q.id,u.id, q.title, q.description, q.cover_photo,
-               u.full_name, u.photo, q.created_at,
-               COUNT(qq.id)
+                SELECT q.id, u.id, q.title, q.description, q.cover_photo,
+                u.full_name, u.photo, q.created_at,
+                COUNT(qq.id)
                 FROM quizzes q
                 JOIN users u ON u.id = q.creator_id
                 LEFT JOIN quiz_questions qq ON qq.quiz_id = q.id
                 WHERE q.id = %s
-                GROUP BY q.id,u.id, q.title, q.description, q.cover_photo,
-                        u.full_name, u.photo, q.created_at
-                """
+                GROUP BY q.id, u.id, q.title, q.description, q.cover_photo,
+                u.full_name, u.photo, q.created_at
+        """
         cursor.execute(query, (quiz_id,))
         row = cursor.fetchone()
 
@@ -299,22 +300,22 @@ def get_quiz_by_id(quiz_id: str, auth: dict = Depends(verify_bearer_token)):
             is_this_me = False
 
         follower_count_query = """
-        SELECT COUNT(*) AS follower_count
-        FROM follows
-        WHERE following_id = %s
+        SELECT COUNT(*) FROM follows WHERE following_id = %s
         """
         cursor.execute(follower_count_query, (user_id,))
         follower_count = cursor.fetchone()[0]
 
         following_count_query = """
-        SELECT COUNT(*) AS following_count
-        FROM follows
-        WHERE follower_id =%s
+        SELECT COUNT(*) FROM follows WHERE follower_id = %s
         """
-
         cursor.execute(following_count_query, (user_id,))
-
         following_count = cursor.fetchone()[0]
+
+        is_followed_query = """
+        SELECT 1 FROM follows WHERE follower_id = %s AND following_id = %s
+        """
+        cursor.execute(is_followed_query, (user_id, player_id))
+        is_followed = cursor.fetchone() is not None
 
         result = {
             "id": id,
@@ -329,6 +330,7 @@ def get_quiz_by_id(quiz_id: str, auth: dict = Depends(verify_bearer_token)):
             "count": count,
             "follower": follower_count,
             "following": following_count,
+            "is_followed": is_followed,
         }
 
         return {"message": "Response Successful", "data": result}
