@@ -233,12 +233,20 @@ def get_top_quizzes(auth: dict = Depends(verify_bearer_token)):
                 q.description,
                 u.photo,
                 u.full_name,
-                COUNT(rp.id) AS total_plays
+                q.created_at,
+                (
+                    SELECT COUNT(rp2.id)
+                    FROM rooms r2
+                    JOIN room_participants rp2 ON rp2.room_id = r2.id
+                    WHERE r2.quiz_id = q.id
+                ) AS total_plays,
+                (
+                    SELECT COUNT(qq2.id)
+                    FROM quiz_questions qq2
+                    WHERE qq2.quiz_id = q.id
+                ) AS question_count
             FROM quizzes q
             JOIN users u ON u.id = q.creator_id
-            JOIN rooms r ON r.quiz_id = q.id
-            JOIN room_participants rp ON rp.room_id = r.id
-            GROUP BY q.id, q.title, q.cover_photo, q.description, u.photo, u.full_name
             ORDER BY total_plays DESC
             LIMIT 10;
         """
@@ -254,7 +262,9 @@ def get_top_quizzes(auth: dict = Depends(verify_bearer_token)):
                 description,
                 photo,
                 full_name,
+                created_at,
                 total_plays,
+                question_count,
             ) = row
             result.append(
                 {
@@ -265,6 +275,8 @@ def get_top_quizzes(auth: dict = Depends(verify_bearer_token)):
                     "image": photo,
                     "author": full_name,
                     "plays": total_plays,
+                    "date": created_at,
+                    "count": question_count,
                 }
             )
 
