@@ -203,7 +203,7 @@ def my_quizzes(
         fetch_all_data = cursor.fetchall()
 
         if not fetch_all_data:
-            raise HTTPException(status_code=404, detail="No quizzes found")
+            return {"data": []}
 
         result = []
 
