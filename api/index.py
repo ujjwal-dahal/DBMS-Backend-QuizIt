@@ -24,6 +24,7 @@ app = FastAPI()
 
 templates = Jinja2Templates(directory="api/templates")
 QUIZIT_URL = os.getenv("QUIZIT_URL")
+ANOTHER_URL = os.getenv("ANOTHER_URL")
 
 
 @app.get("/", response_class=HTMLResponse, tags=["Index"])
@@ -47,7 +48,7 @@ app.include_router(features_app, tags=["Features"])
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[QUIZIT_URL],
+    allow_origins=[QUIZIT_URL, ANOTHER_URL],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
