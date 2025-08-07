@@ -194,12 +194,60 @@ def get_top_authors(auth: dict = Depends(verify_bearer_token)):
                     "name": full_name,
                     "username": username,
                     "image": photo,
-                    "quiz_count": total_quizzes,
+                    "count": total_quizzes,
                     "is_followed": is_followed,
                 }
             )
 
         return {"message": "Successful Response", "data": result}
+
+    except Exception as e:
+        if connection:
+            connection.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+
+    finally:
+        cursor.close()
+        connection.close()
+
+
+@app.get("/top-quizzes")
+def get_top_quizzes(auth: dict = Depends(verify_bearer_token)):
+    connection = connect_database()
+    cursor = connection.cursor()
+
+    try:
+        query = """
+            SELECT 
+                q.id AS quiz_id,
+                q.title,
+                q.cover_photo,
+                q.description,
+                COUNT(rp.id) AS total_plays
+            FROM quizzes q
+            JOIN rooms r ON r.quiz_id = q.id
+            JOIN room_participants rp ON rp.room_id = r.id
+            GROUP BY q.id
+            ORDER BY total_plays DESC
+            LIMIT 10;
+        """
+        cursor.execute(query)
+        rows = cursor.fetchall()
+
+        result = []
+        for row in rows:
+            (quiz_id, title, cover_photo, description, total_plays) = row
+            result.append(
+                {
+                    "id": quiz_id,
+                    "title": title,
+                    "cover_photo": cover_photo,
+                    "description": description,
+                    "plays": total_plays,
+                }
+            )
+
+        return {"message": "Top Played Quizzes", "data": result}
 
     except Exception as e:
         if connection:
