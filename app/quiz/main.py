@@ -331,6 +331,7 @@ def get_quiz_by_id(quiz_id: str, auth: dict = Depends(verify_bearer_token)):
             "follower": follower_count,
             "following": following_count,
             "is_followed": is_followed,
+            "user_id": user_id,
         }
 
         return {"message": "Response Successful", "data": result}
