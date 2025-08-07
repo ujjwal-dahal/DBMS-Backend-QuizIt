@@ -24,7 +24,7 @@ app = FastAPI()
 
 templates = Jinja2Templates(directory="api/templates")
 QUIZIT_URL = os.getenv("QUIZIT_URL")
-ANOTHER_URL = os.getenv("ANOTHER_URL")
+ANOTHER_URL = os.getenv("ANOTHER_URL", "http://localhost:8081")
 
 
 @app.get("/", response_class=HTMLResponse, tags=["Index"])
