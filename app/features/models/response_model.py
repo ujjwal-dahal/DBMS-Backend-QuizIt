@@ -11,3 +11,10 @@ class InviteUserSchema(BaseModel):
 class InviteOutputSchema(BaseModel):
     message: str
     data: List[InviteUserSchema]
+
+
+class FavouriteQuizOutputSchema(BaseModel):
+    id: str
+    title: str
+    description: str
+    cover_photo: str

@@ -1,11 +1,19 @@
 from fastapi import APIRouter, HTTPException, Depends
+from typing import List
 
 # FastAPI Projects Import
 from services.response_handler import verify_bearer_token
 from database.connect_db import connect_database
 from services.email_send import send_email
-from app.features.models.response_model import InviteOutputSchema
-from app.features.models.input_schema import FollowSchema, InviteSchame
+from app.features.models.response_model import (
+    InviteOutputSchema,
+    FavouriteQuizOutputSchema,
+)
+from app.features.models.input_schema import (
+    FollowSchema,
+    InviteSchame,
+    FavouriteQuizSchema,
+)
 from messages.invited_user_email import invite_message
 
 app = APIRouter()
@@ -223,8 +231,11 @@ def get_top_quizzes(auth: dict = Depends(verify_bearer_token)):
                 q.title,
                 q.cover_photo,
                 q.description,
+                u.photo,
+                u.full_name,
                 COUNT(rp.id) AS total_plays
             FROM quizzes q
+            JOIN users u ON u.id = q.creator_id
             JOIN rooms r ON r.quiz_id = q.id
             JOIN room_participants rp ON rp.room_id = r.id
             GROUP BY q.id
@@ -236,13 +247,23 @@ def get_top_quizzes(auth: dict = Depends(verify_bearer_token)):
 
         result = []
         for row in rows:
-            (quiz_id, title, cover_photo, description, total_plays) = row
+            (
+                quiz_id,
+                title,
+                cover_photo,
+                description,
+                photo,
+                full_name,
+                total_plays,
+            ) = row
             result.append(
                 {
                     "id": quiz_id,
                     "title": title,
                     "cover_photo": cover_photo,
                     "description": description,
+                    "image": photo,
+                    "autho": full_name,
                     "plays": total_plays,
                 }
             )
@@ -252,6 +273,105 @@ def get_top_quizzes(auth: dict = Depends(verify_bearer_token)):
     except Exception as e:
         if connection:
             connection.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+
+    finally:
+        cursor.close()
+        connection.close()
+
+
+@app.post("/favourite-quiz")
+def post_favourite_quiz(
+    data: FavouriteQuizSchema, auth: dict = Depends(verify_bearer_token)
+):
+    connection = connect_database()
+    cursor = connection.cursor()
+    quiz_id = data.quiz_id
+    user_id = auth.get("id")
+
+    try:
+        check_query = """
+            SELECT id FROM user_favourites WHERE user_id = %s AND quiz_id = %s
+        """
+        cursor.execute(check_query, (user_id, quiz_id))
+        if cursor.fetchone():
+            raise HTTPException(status_code=400, detail="Already favourited")
+
+        insert_query = """
+            INSERT INTO user_favourites (user_id, quiz_id)
+            VALUES (%s, %s) RETURNING id
+        """
+        cursor.execute(insert_query, (user_id, quiz_id))
+        fetched_id = cursor.fetchone()
+
+        if not fetched_id:
+            raise HTTPException(status_code=400, detail="Something went wrong")
+
+        connection.commit()
+        return {"message": "Added Favourite Quiz"}
+
+    except Exception as e:
+        connection.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+
+    finally:
+        cursor.close()
+        connection.close()
+
+
+@app.delete("/favourite-quiz/{quiz_id}")
+def remove_favourite_quiz(quiz_id: str, auth: dict = Depends(verify_bearer_token)):
+    connection = connect_database()
+    cursor = connection.cursor()
+    user_id = auth.get("id")
+    try:
+        delete_query = """
+        DELETE FROM user_favourites WHERE user_id = %s AND quiz_id = %s
+        """
+        cursor.execute(delete_query, (user_id, quiz_id))
+        connection.commit()
+        return {"message": "Removed from favourites"}
+    except Exception as e:
+        connection.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        cursor.close()
+        connection.close()
+
+
+@app.get("/favourite-quizzes", response_model=List[FavouriteQuizOutputSchema])
+def get_favourite_quizzes(auth: dict = Depends(verify_bearer_token)):
+    connection = connect_database()
+    cursor = connection.cursor()
+    user_id = auth.get("id")
+
+    try:
+        query = """
+        SELECT q.id, q.title, q.description, q.cover_photo,
+               u.full_name, u.photo
+        FROM user_favourites uf
+        JOIN quiz q ON uf.quiz_id = q.id
+        JOIN users u ON q.user_id = u.id
+        WHERE uf.user_id = %s
+        """
+        cursor.execute(query, (user_id,))
+        rows = cursor.fetchall()
+
+        quizzes = [
+            {
+                "id": row[0],
+                "title": row[1],
+                "description": row[2],
+                "cover_photo": row[3],
+                "author": row[4],
+                "image": row[5],
+            }
+            for row in rows
+        ]
+
+        return quizzes
+
+    except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
     finally:
