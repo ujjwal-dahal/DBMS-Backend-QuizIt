@@ -238,7 +238,7 @@ def get_top_quizzes(auth: dict = Depends(verify_bearer_token)):
             JOIN users u ON u.id = q.creator_id
             JOIN rooms r ON r.quiz_id = q.id
             JOIN room_participants rp ON rp.room_id = r.id
-            GROUP BY q.id
+            GROUP BY q.id, q.title, q.cover_photo, q.description, u.photo, u.full_name
             ORDER BY total_plays DESC
             LIMIT 10;
         """
@@ -263,7 +263,7 @@ def get_top_quizzes(auth: dict = Depends(verify_bearer_token)):
                     "cover_photo": cover_photo,
                     "description": description,
                     "image": photo,
-                    "autho": full_name,
+                    "author": full_name,
                     "plays": total_plays,
                 }
             )
