@@ -150,3 +150,62 @@ async def invite_friends(
     finally:
         cursor.close()
         connect.close()
+
+
+@app.get("/top-authors")
+def get_top_authors(auth: dict = Depends(verify_bearer_token)):
+    connection = connect_database()
+    cursor = connection.cursor()
+    user_id = auth.get("id")
+
+    try:
+        get_all_users_query = """
+            SELECT 
+                u.id, 
+                u.full_name, 
+                u.username, 
+                u.photo, 
+                COUNT(q.id) AS total_quizzes,
+                CASE 
+                    WHEN f.follower_id IS NOT NULL THEN TRUE 
+                    ELSE FALSE 
+                END AS is_followed
+            FROM users AS u
+            JOIN quizzes AS q ON q.creator_id = u.id
+            LEFT JOIN follows AS f 
+                ON f.follower_id = %s AND f.following_id = u.id
+            GROUP BY u.id, u.full_name, u.username, u.photo, is_followed
+            ORDER BY total_quizzes DESC
+            LIMIT 5
+        """
+
+        cursor.execute(get_all_users_query, (user_id,))
+        fetch_all_user = cursor.fetchall()
+
+        if not fetch_all_user:
+            return {"data": []}
+
+        result = []
+        for data in fetch_all_user:
+            (id, full_name, username, photo, total_quizzes, is_followed) = data
+            result.append(
+                {
+                    "id": id,
+                    "name": full_name,
+                    "username": username,
+                    "image": photo,
+                    "quiz_count": total_quizzes,
+                    "is_followed": is_followed,
+                }
+            )
+
+        return {"message": "Successful Response", "data": result}
+
+    except Exception as e:
+        if connection:
+            connection.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+
+    finally:
+        cursor.close()
+        connection.close()
