@@ -10,7 +10,7 @@ from database.connect_db import connect_database
 from services.email_send import send_email
 from app.features.models.response_model import (
     InviteOutputSchema,
-    FavouriteQuizOutputSchema,
+    FavouriteQuizResponseSchema,
 )
 from app.features.models.input_schema import (
     FollowSchema,
@@ -396,7 +396,7 @@ def remove_favourite_quiz(quiz_id: str, auth: dict = Depends(verify_bearer_token
         connection.close()
 
 
-@app.get("/favourite-quizzes", response_model=List[FavouriteQuizOutputSchema])
+@app.get("/favourite-quizzes", response_model=FavouriteQuizResponseSchema)
 def get_favourite_quizzes(
     auth: dict = Depends(verify_bearer_token),
     filter: str = Query("newest", description="Filter by criteria, e.g. newest"),

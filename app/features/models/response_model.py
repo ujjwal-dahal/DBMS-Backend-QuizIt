@@ -17,9 +17,14 @@ class FavouriteQuizOutputSchema(BaseModel):
     id: str
     title: str
     description: str
-    cover_photo: Optional[str] = None
+    cover_photo: str
     author: str
-    image: Optional[str] = None
+    image: str
     plays: int
-    question_count: int
-    created_at: str
+    count: int
+    date: str
+
+
+class FavouriteQuizResponseSchema(BaseModel):
+    message: str
+    data: List[FavouriteQuizOutputSchema]
