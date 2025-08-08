@@ -71,6 +71,44 @@ def follow_user(data: FollowSchema, auth: dict = Depends(verify_bearer_token)):
         connect.close()
 
 
+@app.delete("/unfollow-user")
+def unfollow_user(data: FollowSchema, auth: dict = Depends(verify_bearer_token)):
+    unfollowed_by_user_id = auth.get("id")
+    unfollowed_to_id = data.followed_to_id
+    connect = connect_database()
+    cursor = connect.cursor()
+
+    try:
+        if int(unfollowed_by_user_id) == int(unfollowed_to_id):
+            raise HTTPException(status_code=400, detail="Cannot Unfollow Yourself")
+
+        cursor.execute(
+            "SELECT id FROM follows WHERE follower_id = %s AND following_id = %s",
+            (unfollowed_by_user_id, unfollowed_to_id),
+        )
+        if not cursor.fetchone():
+            raise HTTPException(
+                status_code=404, detail="You are not following this user"
+            )
+
+        delete_query = """
+            DELETE FROM follows 
+            WHERE follower_id = %s AND following_id = %s
+        """
+        cursor.execute(delete_query, (unfollowed_by_user_id, unfollowed_to_id))
+        connect.commit()
+
+        return {"message": f"Unfollowed User ID : {unfollowed_to_id}"}
+
+    except Exception as e:
+        connect.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+
+    finally:
+        cursor.close()
+        connect.close()
+
+
 @app.get("/invite-user-list", response_model=InviteOutputSchema)
 def invite_user_list(auth: dict = Depends(verify_bearer_token)):
     connect = connect_database()
