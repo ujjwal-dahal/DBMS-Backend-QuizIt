@@ -664,12 +664,26 @@ def my_quizzes(
         if filter not in filtering_list:
             raise HTTPException(status_code=400, detail="Invalid filtering value")
 
-        filtering_criteria = "created_at" if filter == "newest" else "created_at"
+        filtering_criteria = "q.created_at" if filter == "newest" else "q.created_at"
 
         get_quiz_description_query = f"""
-        SELECT q.id, q.cover_photo, q.title, q.description, q.created_at
+        SELECT 
+            q.id,
+            q.cover_photo,
+            q.title,
+            q.description,
+            q.created_at,
+            u.photo AS author_photo,
+            u.full_name AS author_name,
+            COUNT(DISTINCT rp.id) AS total_plays,
+            COUNT(DISTINCT qq.id) AS question_count
         FROM quizzes AS q
+        JOIN users AS u ON u.id = q.creator_id
+        LEFT JOIN rooms r ON r.quiz_id = q.id
+        LEFT JOIN room_participants rp ON rp.room_id = r.id
+        LEFT JOIN quiz_questions qq ON qq.quiz_id = q.id
         WHERE q.creator_id = %s
+        GROUP BY q.id, q.cover_photo, q.title, q.description, q.created_at, u.photo, u.full_name
         ORDER BY {filtering_criteria} {order.upper()}
         """
 
@@ -682,7 +696,17 @@ def my_quizzes(
         result = []
 
         for data in fetch_all_data:
-            (quiz_id, cover_photo, title, description, created_at) = data
+            (
+                quiz_id,
+                cover_photo,
+                title,
+                description,
+                created_at,
+                author_photo,
+                author_name,
+                total_plays,
+                question_count,
+            ) = data
 
             get_all_questions_query = """
             SELECT qq.id, qq.question, qq.question_index, qq.options,
@@ -690,7 +714,6 @@ def my_quizzes(
             FROM quiz_questions AS qq
             WHERE qq.quiz_id = %s
             """
-
             cursor.execute(get_all_questions_query, (quiz_id,))
             fetch_all_questions = cursor.fetchall()
 
@@ -719,12 +742,16 @@ def my_quizzes(
 
             result.append(
                 {
-                    "quiz_id": quiz_id,
-                    "cover_photo": cover_photo,
+                    "id": quiz_id,
                     "title": title,
+                    "cover_photo": cover_photo,
                     "description": description,
+                    "image": author_photo,
+                    "author": author_name,
+                    "plays": total_plays,
+                    "date": created_at,
+                    "count": question_count,
                     "questions": question_result,
-                    "created_at": created_at,
                 }
             )
 
