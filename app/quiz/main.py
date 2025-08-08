@@ -404,53 +404,6 @@ def get_quiz_by_id(quiz_id: str, auth: dict = Depends(verify_bearer_token)):
             connection.close()
 
 
-@app.delete("/{quiz_id}")
-def delete_quiz(quiz_id: str, auth: dict = Depends(verify_bearer_token)):
-    connection = connect_database()
-    cursor = connection.cursor()
-
-    user_id = auth.get("id")
-
-    try:
-        cursor.execute("SELECT creator_id FROM quizzes WHERE id = %s", (quiz_id,))
-        quiz = cursor.fetchone()
-        if not quiz:
-            raise HTTPException(status_code=404, detail="Quiz not found")
-        if quiz[0] != user_id:
-            raise HTTPException(
-                status_code=403, detail="Not authorized to delete this quiz"
-            )
-
-        cursor.execute(
-            """
-            DELETE FROM room_answers 
-            WHERE question_id IN (SELECT id FROM quiz_questions WHERE quiz_id = %s)
-        """,
-            (quiz_id,),
-        )
-
-        cursor.execute("DELETE FROM quiz_questions WHERE quiz_id = %s", (quiz_id,))
-
-        cursor.execute("DELETE FROM quiz_tags WHERE quiz_id = %s", (quiz_id,))
-
-        cursor.execute("DELETE FROM quizzes WHERE id = %s", (quiz_id,))
-
-        connection.commit()
-
-        return {"message": f"Quiz with id {quiz_id} deleted successfully"}
-
-    except Exception as e:
-        if connection:
-            connection.rollback()
-        raise HTTPException(status_code=500, detail=str(e))
-
-    finally:
-        if cursor:
-            cursor.close()
-        if connection:
-            connection.close()
-
-
 @app.delete("/{quiz_id}/question/{question_id}")
 def delete_question(
     quiz_id: str, question_id: str, auth: dict = Depends(verify_bearer_token)

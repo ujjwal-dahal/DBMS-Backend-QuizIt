@@ -371,37 +371,41 @@ def delete_quiz(quiz_id: str, auth: dict = Depends(verify_bearer_token)):
     cursor = connection.cursor()
 
     try:
-        cursor.execute("SELECT id FROM quizzes WHERE id = %s", (quiz_id,))
+        cursor.execute("SELECT id, creator_id FROM quizzes WHERE id = %s", (quiz_id,))
         quiz = cursor.fetchone()
 
         if not quiz:
             raise HTTPException(status_code=404, detail="Quiz not found")
 
-        cursor.execute("SELECT created_by FROM quizzes WHERE id = %s", (quiz_id,))
-        created_id = cursor.fetchone()[0]
+        quiz_id_db, creator_id = quiz
 
-        if not created_id:
-            raise HTTPException(status_code=404, detail="Quiz not found")
-
-        if created_id != auth.get("id"):
+        if creator_id != auth.get("id"):
             raise HTTPException(
                 status_code=403, detail="Not authorized to delete this quiz"
             )
 
-        query = """
-        DELETE FROM quizzes WHERE id=%s
-        """
-        cursor.execute(query, (quiz_id,))
+        cursor.execute(
+            """
+            DELETE FROM room_answers 
+            WHERE question_id IN (SELECT id FROM quiz_questions WHERE quiz_id = %s)
+            """,
+            (quiz_id,),
+        )
+
+        cursor.execute("DELETE FROM quiz_questions WHERE quiz_id = %s", (quiz_id,))
+
+        cursor.execute("DELETE FROM quiz_tags WHERE quiz_id = %s", (quiz_id,))
+
+        cursor.execute("DELETE FROM quizzes WHERE id = %s", (quiz_id,))
 
         connection.commit()
 
-        return {"message": "Quiz Deleted Successfully"}
+        return {"message": "Quiz and related data deleted successfully"}
 
     except Exception as e:
         if connection:
             connection.rollback()
-
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e))
 
     finally:
         if cursor:
