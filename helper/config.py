@@ -27,3 +27,10 @@ REFRESH_TOKEN_EXPIRY = 1  # 1 Days
 # Email & Password Expiry Time
 VERIFY_MAIL_EXPIRY = 5
 FORGOT_PASSWORD_EXPIRY = 5
+
+# Default Quiz Cover Photo
+DEFAULT_COVER_PHOTO_URL = os.getenv("DEFAULT_COVER_PHOTO_URL")
+
+# QuizIt URL
+QUIZIT_URL = os.getenv("QUIZIT_URL")
+ANOTHER_URL = os.getenv("ANOTHER_URL", "http://localhost:8081")

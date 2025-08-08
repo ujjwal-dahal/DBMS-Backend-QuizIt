@@ -4,7 +4,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.templating import Jinja2Templates
 from fastapi.requests import Request
 from fastapi.responses import HTMLResponse
-
+from starlette.middleware.sessions import SessionMiddleware
+from authlib.integrations.starlette_client import OAuth, OAuthError
 
 # Projects Import
 from app.authentication.main import app as auth_router
@@ -12,19 +13,11 @@ from app.users.main import router as user_router
 from app.quiz.main import app as quiz_app
 from app.websocket.main import app as websocket_app
 from app.features.main import app as features_app
-
-
-# Environment Variable Imports
-from dotenv import load_dotenv
-import os
-
-load_dotenv()
+from helper.config import QUIZIT_URL, ANOTHER_URL
 
 app = FastAPI()
 
 templates = Jinja2Templates(directory="api/templates")
-QUIZIT_URL = os.getenv("QUIZIT_URL")
-ANOTHER_URL = os.getenv("ANOTHER_URL", "http://localhost:8081")
 
 
 @app.get("/", response_class=HTMLResponse, tags=["Index"])

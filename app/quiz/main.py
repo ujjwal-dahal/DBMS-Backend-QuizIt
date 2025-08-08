@@ -1,18 +1,18 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, File, UploadFile, Form
 from datetime import datetime, timezone
-import json
+from typing import Optional
 import random as rd
 from cryptography.fernet import Fernet
 from cloudinary.uploader import upload as cloudinary_upload
 import uuid
-
+import json
 
 # Project Imports
 from .quiz_models.quiz_model import QuizTag
 from services.response_handler import verify_bearer_token
 from database.connect_db import connect_database
 from services.cloudinary_config import configure_cloudinary
-from helper.config import ENCRYPTION_KEY
+from helper.config import ENCRYPTION_KEY, DEFAULT_COVER_PHOTO_URL
 
 
 app = APIRouter()
@@ -22,7 +22,7 @@ configure_cloudinary()
 
 @app.post("/upload-quiz")
 async def upload_quiz(
-    cover_photo: UploadFile = File(...),
+    cover_photo: Optional[UploadFile] = File(None),
     title: str = Form(...),
     description: str = Form(...),
     is_published: bool = Form(...),
@@ -35,30 +35,31 @@ async def upload_quiz(
     user_id = auth.get("id")
 
     try:
+        if cover_photo:
+            file_bytes = await cover_photo.read()
+            unique_public_id = f"quiz_cover_{user_id}_{uuid.uuid4().hex}"
 
-        file_bytes = await cover_photo.read()
-
-        unique_public_id = f"quiz_cover_{user_id}_{uuid.uuid4().hex}"
-
-        upload_result = cloudinary_upload(
-            file_bytes,
-            folder=f"QuizIt/Quiz_Cover_Photos/User_{user_id}_Quiz",
-            public_id=unique_public_id,
-            overwrite=False,
-        )
-
-        cover_photo_url = upload_result.get("secure_url")
-        if not cover_photo_url:
-            raise HTTPException(
-                status_code=500, detail="Failed to upload quiz cover photo"
+            upload_result = cloudinary_upload(
+                file_bytes,
+                folder=f"QuizIt/Quiz_Cover_Photos/User_{user_id}_Quiz",
+                public_id=unique_public_id,
+                overwrite=False,
             )
+
+            cover_photo_url = upload_result.get("secure_url")
+            if not cover_photo_url:
+                raise HTTPException(
+                    status_code=500, detail="Failed to upload quiz cover photo"
+                )
+        else:
+            cover_photo_url = DEFAULT_COVER_PHOTO_URL
 
         created_at = datetime.now(timezone.utc)
 
         insert_quiz_query = """
             INSERT INTO quizzes (cover_photo, title, description, is_published, created_at, creator_id)
             VALUES (%s, %s, %s, %s, %s, %s) RETURNING id
-        """
+            """
 
         cursor.execute(
             insert_quiz_query,
