@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Query
 from typing import List
 from cryptography.fernet import Fernet
 from dotenv import load_dotenv
@@ -397,20 +397,37 @@ def remove_favourite_quiz(quiz_id: str, auth: dict = Depends(verify_bearer_token
 
 
 @app.get("/favourite-quizzes", response_model=List[FavouriteQuizOutputSchema])
-def get_favourite_quizzes(auth: dict = Depends(verify_bearer_token)):
+def get_favourite_quizzes(
+    auth: dict = Depends(verify_bearer_token),
+    filter: str = Query("newest", description="Filter by criteria, e.g. newest"),
+    order: str = Query("asc", description="Order direction: asc or desc"),
+):
     connection = connect_database()
     cursor = connection.cursor()
     user_id = auth.get("id")
 
     try:
-        query = """
-        SELECT q.id, q.title, q.description, q.cover_photo,
-               u.full_name, u.photo
-        FROM user_favourites uf
-        JOIN quiz q ON uf.quiz_id = q.id
-        JOIN users u ON q.user_id = u.id
-        WHERE uf.user_id = %s
+        filtering_list = ["newest"]
+        ordering_list = ["asc", "desc"]
+
+        if filter not in filtering_list:
+            raise HTTPException(status_code=400, detail="Invalid filter value")
+        if order.lower() not in ordering_list:
+            raise HTTPException(status_code=400, detail="Invalid order value")
+
+        if filter == "newest":
+            filtering_criteria = "q.created_at"
+
+        query = f"""
+            SELECT q.id, q.title, q.description, q.cover_photo,
+                   u.full_name, u.photo
+            FROM user_favourites uf
+            JOIN quiz q ON uf.quiz_id = q.id
+            JOIN users u ON q.user_id = u.id
+            WHERE uf.user_id = %s
+            ORDER BY {filtering_criteria} {order.upper()}
         """
+
         cursor.execute(query, (user_id,))
         rows = cursor.fetchall()
 
