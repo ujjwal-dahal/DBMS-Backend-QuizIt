@@ -485,28 +485,25 @@ def decrypt_data(data: EncryptedDataSchema):
 
 @app.get("/search-users", response_model=UserSearchResponse)
 def search_users(
-    q: str = Query(
+    search: str = Query(
         ..., min_length=1, description="Search term to match inside full_name"
     ),
-    limit: int = Query(20, ge=1, le=100, description="Max results"),
-    offset: int = Query(0, ge=0, description="Offset for pagination"),
     auth: dict = Depends(verify_bearer_token),
 ):
     connection = connect_database()
     cursor = connection.cursor()
     try:
 
-        pattern = f"%{q}%"
+        pattern = f"%{search}%"
 
         sql = """
             SELECT id, username, full_name, photo
             FROM users
             WHERE LOWER(full_name) LIKE LOWER(%s)
             ORDER BY full_name ASC
-            LIMIT %s OFFSET %s
         """
 
-        cursor.execute(sql, (pattern, limit, offset))
+        cursor.execute(sql, (pattern,))
         rows = cursor.fetchall()
 
         if not rows:
