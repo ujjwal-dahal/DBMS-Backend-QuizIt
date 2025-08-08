@@ -346,6 +346,12 @@ def get_quiz_by_id(quiz_id: str, auth: dict = Depends(verify_bearer_token)):
         cursor.execute(plays_query, (quiz_id,))
         plays = cursor.fetchone()[0]
 
+        fav_count_query = """
+            SELECT COUNT(*) FROM user_favourites WHERE quiz_id = %s
+        """
+        cursor.execute(fav_count_query, (quiz_id,))
+        favourite_count = cursor.fetchone()[0]
+
         cursor.execute(
             "SELECT COUNT(*) FROM follows WHERE following_id = %s", (user_id,)
         )
@@ -384,6 +390,7 @@ def get_quiz_by_id(quiz_id: str, auth: dict = Depends(verify_bearer_token)):
             "is_followed": is_followed,
             "quiz_creator_id": player_id,
             "is_favourite": is_favourite,
+            "favourite_count": favourite_count,
         }
 
         return {"message": "Response Successful", "data": result}
