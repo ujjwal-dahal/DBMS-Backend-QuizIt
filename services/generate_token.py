@@ -1,14 +1,10 @@
 from jose import jwt
 from datetime import datetime, timedelta, timezone
-from dotenv import load_dotenv
-import os
 import random
 
-load_dotenv()
 
-
-TOKEN_SECRET = os.getenv("TOKEN_SECRET")
-TOKEN_ALGO = os.getenv("TOKEN_ALGO")
+# Project Imports
+from helper.config import TOKEN_SECRET, TOKEN_ALGO
 
 
 def generate_token_jwt(payload: str, expiry_minute):

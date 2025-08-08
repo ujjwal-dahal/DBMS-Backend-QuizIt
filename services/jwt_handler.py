@@ -1,14 +1,9 @@
 from jose import jwt
 from datetime import datetime, timezone, timedelta
-from dotenv import load_dotenv
-import os
 from fastapi import HTTPException
 
-load_dotenv()
-
-ALGORITHM = os.getenv("JWT_ALGORITHM")
-SECRET_KEY = os.getenv("JWT_SECRET_KEY")
-ACCESS_TOKEN_EXPIRY = 120
+# Project Imports
+from helper.config import ALGORITHM, SECRET_KEY, ACCESS_TOKEN_EXPIRY
 
 
 def get_access_token(user_info: dict, expiry_minutes: int):

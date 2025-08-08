@@ -1,8 +1,6 @@
 from fastapi import APIRouter, HTTPException, Depends, Query
-from typing import List
 from cryptography.fernet import Fernet
-from dotenv import load_dotenv
-import os
+
 
 # FastAPI Projects Import
 from services.response_handler import verify_bearer_token
@@ -20,10 +18,10 @@ from app.features.models.input_schema import (
     EncryptedDataSchema,
 )
 from messages.invited_user_email import invite_message
+from helper.config import FERNET_KEY
 
-load_dotenv()
+
 app = APIRouter()
-FERNET_KEY = os.getenv("ENCRYPTION_KEY")
 fernet = Fernet(FERNET_KEY)
 
 

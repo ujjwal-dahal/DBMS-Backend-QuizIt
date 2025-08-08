@@ -1,27 +1,26 @@
-from pydantic import BaseModel, EmailStr, Field, model_validator, field_validator
+from pydantic import BaseModel, EmailStr, Field, root_validator
 from typing import Annotated
 
 
 class SignUpSchema(BaseModel):
-    # id: Annotated[str, Field(default=None, description="ID of User")]
     full_name: Annotated[str, Field(..., description="Full name of User")]
     username: Annotated[str, Field(...)]
     email: Annotated[str, EmailStr()]
     password: Annotated[str, Field(...)]
     re_password: Annotated[str, Field(...)]
 
-    @model_validator(mode="after")
-    def check_password_match(cls, model):
-        password = model.password
-        re_password = model.re_password
+    @root_validator
+    def check_password_match(cls, values):
+        password = values.get("password")
+        re_password = values.get("re_password")
 
         if password != re_password:
-            raise ValueError("Password donot Match")
+            raise ValueError("Password do not match")
 
-        return model
+        return values
 
-    model_config = {
-        "json_schema_extra": {
+    class Config:
+        schema_extra = {
             "example": {
                 "full_name": "User Full Name",
                 "username": "Unique Username",
@@ -30,7 +29,6 @@ class SignUpSchema(BaseModel):
                 "re_password": "user_password",
             }
         }
-    }
 
 
 class LoginSchema(BaseModel):
@@ -67,12 +65,11 @@ class ResetPasswordSchema(BaseModel):
     password: Annotated[str, Field(...)]
     re_password: Annotated[str, Field(...)]
 
-    @model_validator(mode="after")
-    def check_password(cls, model):
-        password = model.password
-        re_password = model.re_password
+    @root_validator
+    def check_password(cls, values):
+        password = values.get("password")
+        re_password = values.get("re_password")
 
         if password != re_password:
-            raise ValueError("Password Didnot Match")
-
-        return model
+            raise ValueError("Password did not match")
+        return values

@@ -1,5 +1,7 @@
 from fastapi import APIRouter, HTTPException, Depends
 from fastapi.responses import JSONResponse
+
+# Project Imports
 from .auth_models.auth_models import (
     SignUpSchema,
     ForgotPasswordSchema,
@@ -18,27 +20,19 @@ from database.connect_db import connect_database
 from services.password_hashing import hash_password, match_password
 from services.response_handler import verify_bearer_token
 from services.email_send import send_email
-from dotenv import load_dotenv
-import os
 from services.generate_token import generate_otp
 from datetime import datetime, timezone, timedelta
-
-# Project Imports
 from messages.verify_email import otp_email_body
 from messages.reset_password import reset_password_email_body
+from helper.config import (
+    ACCESS_TOKEN_EXPIRY,
+    REFRESH_TOKEN_EXPIRY,
+    VERIFY_MAIL_EXPIRY,
+    FORGOT_PASSWORD_EXPIRY,
+)
 
-load_dotenv()
 
 app = APIRouter()
-
-ACCESS_TOKEN_EXPIRY = 120  # 120 Minutes
-REFRESH_TOKEN_EXPIRY = 1  # 1 Days
-
-VERIFY_MAIL_EXPIRY = 5
-FORGOT_PASSWORD_EXPIRY = 5
-
-TOKEN_SECRET = os.getenv("TOKEN_SECRET")
-TOKEN_ALGO = os.getenv("TOKEN_ALGO")
 
 
 @app.get("/")
@@ -48,11 +42,6 @@ def auth_index_page():
         "Backend Developer": "Ujjwal Dahal",
         "Frontend Developer": "Dharmananda Joshi",
     }
-
-
-@app.get("/protected-route")
-def protected_route(verified: dict = Depends(verify_bearer_token)):
-    return {"message": "You are Authorized!"}
 
 
 @app.post("/signup")

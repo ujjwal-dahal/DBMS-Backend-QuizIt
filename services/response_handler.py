@@ -1,14 +1,11 @@
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi import Depends, status, HTTPException
-from dotenv import load_dotenv
-import os
+
+# Project Imports
 from .jwt_handler import verify_token
 from jose import jwt
+from helper.config import JWT_SECRET_KEY, JWT_ALGORITHM
 
-load_dotenv()
-
-JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY")
-JWT_ALGORITHM = os.getenv("JWT_ALGORITHM")
 
 security = HTTPBearer()
 

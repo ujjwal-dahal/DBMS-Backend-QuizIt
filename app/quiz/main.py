@@ -3,8 +3,6 @@ from datetime import datetime, timezone
 import json
 import random as rd
 from cryptography.fernet import Fernet
-from dotenv import load_dotenv
-import os
 from cloudinary.uploader import upload as cloudinary_upload
 import uuid
 
@@ -14,10 +12,8 @@ from .quiz_models.quiz_model import QuizTag
 from services.response_handler import verify_bearer_token
 from database.connect_db import connect_database
 from services.cloudinary_config import configure_cloudinary
+from helper.config import ENCRYPTION_KEY
 
-load_dotenv()
-
-ENCRYPTION_KEY = os.getenv("ENCRYPTION_KEY")
 
 app = APIRouter()
 fernet = Fernet(ENCRYPTION_KEY)
