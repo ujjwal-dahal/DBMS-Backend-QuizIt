@@ -454,13 +454,13 @@ def get_favourite_quizzes(
                 "author": row[4],
                 "image": row[5],
                 "plays": row[6],
-                "question_count": row[7],
-                "created_at": row[8].isoformat(),
+                "count": row[7],
+                "date": row[8].isoformat(),
             }
             for row in rows
         ]
 
-        return quizzes
+        return {"message": "Successfull Response", "data": quizzes}
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
