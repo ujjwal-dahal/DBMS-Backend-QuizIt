@@ -28,3 +28,7 @@ class QuizTag(str, Enum):
     math = "Math"
     history = "History"
     geography = "Geography"
+    literature = "Literature"
+    technology = "Technology"
+    sports = "Sports"
+    arts = "Arts"
