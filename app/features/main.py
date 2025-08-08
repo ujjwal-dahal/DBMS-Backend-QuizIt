@@ -11,6 +11,7 @@ from services.email_send import send_email
 from app.features.models.response_model import (
     InviteOutputSchema,
     FavouriteQuizResponseSchema,
+    UserSearchResponse,
 )
 from app.features.models.input_schema import (
     FollowSchema,
@@ -480,3 +481,54 @@ def decrypt_data(data: EncryptedDataSchema):
         raise HTTPException(
             status_code=400, detail="Decryption failed or invalid token"
         )
+
+
+@app.get("/search-users", response_model=UserSearchResponse)
+def search_users(
+    q: str = Query(
+        ..., min_length=1, description="Search term to match inside full_name"
+    ),
+    limit: int = Query(20, ge=1, le=100, description="Max results"),
+    offset: int = Query(0, ge=0, description="Offset for pagination"),
+    auth: dict = Depends(verify_bearer_token),
+):
+    connection = connect_database()
+    cursor = connection.cursor()
+    try:
+
+        pattern = f"%{q}%"
+
+        sql = """
+            SELECT id, username, full_name, photo
+            FROM users
+            WHERE LOWER(full_name) LIKE LOWER(%s)
+            ORDER BY full_name ASC
+            LIMIT %s OFFSET %s
+        """
+
+        cursor.execute(sql, (pattern, limit, offset))
+        rows = cursor.fetchall()
+
+        if not rows:
+            return {"message": "Response", "data": []}
+
+        result = []
+        for r in rows:
+            (id, username, full_name, image) = r
+            result.append(
+                {
+                    "id": str(id),
+                    "username": username,
+                    "full_name": full_name,
+                    "image": image,
+                }
+            )
+
+        return {"message": "Search Successfull", "data": result}
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+    finally:
+        cursor.close()
+        connection.close()

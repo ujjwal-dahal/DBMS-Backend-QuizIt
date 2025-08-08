@@ -28,3 +28,15 @@ class FavouriteQuizOutputSchema(BaseModel):
 class FavouriteQuizResponseSchema(BaseModel):
     message: str
     data: List[FavouriteQuizOutputSchema]
+
+
+class UserSearchOutput(BaseModel):
+    id: str
+    username: str
+    full_name: str
+    image: Optional[str]
+
+
+class UserSearchResponse(BaseModel):
+    message: str
+    data: List[UserSearchOutput]
