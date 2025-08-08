@@ -419,11 +419,25 @@ def get_favourite_quizzes(
             filtering_criteria = "q.created_at"
 
         query = f"""
-            SELECT q.id, q.title, q.description, q.cover_photo,
-                   u.full_name, u.photo
+            SELECT 
+                q.id, q.title, q.description, q.cover_photo,
+                u.full_name, u.photo,
+                COALESCE(plays.play_count, 0) AS plays_count,
+                COALESCE(questions.question_count, 0) AS question_count,
+                q.created_at
             FROM user_favourites uf
-            JOIN quiz q ON uf.quiz_id = q.id
-            JOIN users u ON q.user_id = u.id
+            JOIN quizzes q ON uf.quiz_id = q.id
+            JOIN users u ON q.creator_id = u.id
+            LEFT JOIN (
+                SELECT quiz_id, COUNT(*) AS play_count
+                FROM rooms
+                GROUP BY quiz_id
+            ) plays ON q.id = plays.quiz_id
+            LEFT JOIN (
+                SELECT quiz_id, COUNT(*) AS question_count
+                FROM quiz_questions
+                GROUP BY quiz_id
+            ) questions ON q.id = questions.quiz_id
             WHERE uf.user_id = %s
             ORDER BY {filtering_criteria} {order.upper()}
         """
@@ -433,12 +447,15 @@ def get_favourite_quizzes(
 
         quizzes = [
             {
-                "id": row[0],
+                "id": str(row[0]),
                 "title": row[1],
                 "description": row[2],
                 "cover_photo": row[3],
                 "author": row[4],
                 "image": row[5],
+                "plays": row[6],
+                "question_count": row[7],
+                "created_at": row[8].isoformat(),
             }
             for row in rows
         ]
