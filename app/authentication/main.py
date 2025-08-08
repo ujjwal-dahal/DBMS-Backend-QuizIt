@@ -511,7 +511,7 @@ async def auth_google(request: Request):
     }
 
 
-@app.get("/logout")
+@app.get("/logout/google")
 async def logout(request: Request):
     request.session.pop("user", None)
 
