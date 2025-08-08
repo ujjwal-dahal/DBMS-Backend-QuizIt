@@ -5,7 +5,7 @@ from fastapi.templating import Jinja2Templates
 from fastapi.requests import Request
 from fastapi.responses import HTMLResponse
 from starlette.middleware.sessions import SessionMiddleware
-from authlib.integrations.starlette_client import OAuth, OAuthError
+
 
 # Projects Import
 from app.authentication.main import app as auth_router
@@ -13,9 +13,17 @@ from app.users.main import router as user_router
 from app.quiz.main import app as quiz_app
 from app.websocket.main import app as websocket_app
 from app.features.main import app as features_app
-from helper.config import QUIZIT_URL, ANOTHER_URL
+from helper.config import (
+    QUIZIT_URL,
+    ANOTHER_URL,
+    AUTH_SECRET_KEY,
+)
 
 app = FastAPI()
+
+
+app.add_middleware(SessionMiddleware, secret_key=AUTH_SECRET_KEY)
+
 
 templates = Jinja2Templates(directory="api/templates")
 

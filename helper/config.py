@@ -10,7 +10,8 @@ ENCRYPTION_KEY = os.getenv("ENCRYPTION_KEY")
 # Authentication Google
 CLIENT_ID = os.getenv("CLIENT_ID")
 CLIENT_SECRET = os.getenv("CLIENT_SECRET")
-
+AUTH_SECRET_KEY = os.getenv("AUTH_SECRET_KEY")
+SERVICE_METADATA_URL = os.getenv("SERVICE_METADATA_URL")
 
 # JWT Authentication
 TOKEN_SECRET = os.getenv("TOKEN_SECRET")

@@ -1,5 +1,5 @@
-from fastapi import APIRouter, HTTPException, Depends
-from fastapi.responses import JSONResponse
+from fastapi import APIRouter, HTTPException, Depends, Request
+from fastapi.responses import JSONResponse, RedirectResponse
 
 # Project Imports
 from .auth_models.auth_models import (
@@ -30,7 +30,8 @@ from helper.config import (
     VERIFY_MAIL_EXPIRY,
     FORGOT_PASSWORD_EXPIRY,
 )
-
+from helper.oauth_config import oauth
+from authlib.integrations.starlette_client import OAuthError
 
 app = APIRouter()
 
@@ -448,3 +449,73 @@ def get_authenticated_user(auth: dict = Depends(verify_bearer_token)):
     finally:
         cursor.close()
         connection.close()
+
+
+@app.get("/login/google")
+async def login_google(request: Request):
+    redirect_uri = request.url_for("auth_google")
+    return await oauth.google.authorize_redirect(request, redirect_uri)
+
+
+@app.get("/google")
+async def auth_google(request: Request):
+    try:
+        token = await oauth.google.authorize_access_token(request)
+    except OAuthError as e:
+        raise HTTPException(status_code=400, detail=f"OAuth Error: {str(e)}")
+
+    user_info = await oauth.google.parse_id_token(request, token)
+
+    if not user_info:
+        raise HTTPException(
+            status_code=400, detail="Failed to obtain user info from Google"
+        )
+
+    email = user_info.get("email")
+    full_name = user_info.get("name")
+    google_sub = user_info.get("sub")
+    picture = user_info.get("picture")
+
+    connection = connect_database()
+    cursor = connection.cursor()
+
+    cursor.execute("SELECT id, username FROM users WHERE email=%s", (email,))
+    user = cursor.fetchone()
+
+    if not user:
+        cursor.execute(
+            "INSERT INTO users (email, full_name, username, photo, google_sub, is_verified, created_at) VALUES (%s,%s,%s,%s,%s,%s,NOW()) RETURNING id",
+            (email, full_name, email.split("@")[0], picture, google_sub, True),
+        )
+        user_id = cursor.fetchone()[0]
+        connection.commit()
+    else:
+        user_id = user[0]
+
+    cursor.close()
+    connection.close()
+
+    access_token = get_access_token({"id": user_id})
+    refresh_token = get_refresh_token({"id": user_id})
+
+    return {
+        "message": "Google login successful",
+        "user": {
+            "id": user_id,
+            "email": email,
+            "full_name": full_name,
+            "image": picture,
+        },
+        "access_token": access_token,
+        "refresh_token": refresh_token,
+    }
+
+
+@app.get("/logout")
+async def logout(request: Request):
+    request.session.pop("user", None)
+
+    google_logout_url = "https://accounts.google.com/logout"
+    # google_logout_url = "https://accounts.google.com/logout?continue=https://quizit.expo.app"
+
+    return RedirectResponse(url=google_logout_url)
