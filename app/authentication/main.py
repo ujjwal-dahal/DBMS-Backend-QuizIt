@@ -454,6 +454,7 @@ def get_authenticated_user(auth: dict = Depends(verify_bearer_token)):
 @app.get("/login/google")
 async def login_google(request: Request):
     redirect_uri = request.url_for("auth_google")
+    print("Redirect URI:", redirect_uri)
     return await oauth.google.authorize_redirect(request, redirect_uri)
 
 
@@ -461,20 +462,22 @@ async def login_google(request: Request):
 async def auth_google(request: Request):
     try:
         token = await oauth.google.authorize_access_token(request)
-        user_info = await oauth.google.parse_id_token(request, token)
+        print("Token:", token)
+
+        user_info = token.get("userinfo")
+
+        if not user_info:
+            raise HTTPException(
+                status_code=400, detail="Failed to obtain user info from Google"
+            )
+
     except OAuthError as e:
         raise HTTPException(status_code=400, detail=f"OAuth Error: {str(e)}")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Internal Server Error: {str(e)}")
 
-    if not user_info:
-        raise HTTPException(
-            status_code=400, detail="Failed to obtain user info from Google"
-        )
-
     email = user_info.get("email")
     full_name = user_info.get("name")
-    google_sub = user_info.get("sub")
     picture = user_info.get("picture")
 
     connection = connect_database()
@@ -485,9 +488,10 @@ async def auth_google(request: Request):
 
     if not user:
         cursor.execute(
-            "INSERT INTO users (email, full_name, username, photo, google_sub, is_verified, created_at) VALUES (%s,%s,%s,%s,%s,%s,NOW()) RETURNING id",
-            (email, full_name, email.split("@")[0], picture, google_sub, True),
+            "INSERT INTO users (email, full_name, username, photo, is_verified, created_at) VALUES (%s,%s,%s,%s,%s,NOW()) RETURNING id",
+            (email, full_name, email.split("@")[0], picture, True),
         )
+
         user_id = cursor.fetchone()[0]
         connection.commit()
     else:
@@ -496,8 +500,8 @@ async def auth_google(request: Request):
     cursor.close()
     connection.close()
 
-    access_token = get_access_token({"id": user_id})
-    refresh_token = get_refresh_token({"id": user_id})
+    access_token = get_access_token({"id": user_id}, expiry_minutes=ACCESS_TOKEN_EXPIRY)
+    refresh_token = get_refresh_token({"id": user_id}, expiry_time=REFRESH_TOKEN_EXPIRY)
 
     return {
         "message": "Google login successful",
@@ -515,8 +519,5 @@ async def auth_google(request: Request):
 @app.get("/logout/google")
 async def logout(request: Request):
     request.session.pop("user", None)
-
     google_logout_url = "https://accounts.google.com/logout"
-    # google_logout_url = "https://accounts.google.com/logout?continue=https://quizit.expo.app"
-
     return RedirectResponse(url=google_logout_url)
