@@ -307,15 +307,15 @@ def get_quiz_by_id(quiz_id: str, auth: dict = Depends(verify_bearer_token)):
 
     try:
         query = """
-                SELECT q.id, u.id, q.title, q.description, q.cover_photo,
-                u.full_name, u.photo, q.created_at,
-                COUNT(qq.id)
-                FROM quizzes q
-                JOIN users u ON u.id = q.creator_id
-                LEFT JOIN quiz_questions qq ON qq.quiz_id = q.id
-                WHERE q.id = %s
-                GROUP BY q.id, u.id, q.title, q.description, q.cover_photo,
-                u.full_name, u.photo, q.created_at
+            SELECT q.id, u.id, q.title, q.description, q.cover_photo,
+            u.full_name, u.photo, q.created_at,
+            COUNT(qq.id)
+            FROM quizzes q
+            JOIN users u ON u.id = q.creator_id
+            LEFT JOIN quiz_questions qq ON qq.quiz_id = q.id
+            WHERE q.id = %s
+            GROUP BY q.id, u.id, q.title, q.description, q.cover_photo,
+            u.full_name, u.photo, q.created_at
         """
         cursor.execute(query, (quiz_id,))
         row = cursor.fetchone()
@@ -323,30 +323,50 @@ def get_quiz_by_id(quiz_id: str, auth: dict = Depends(verify_bearer_token)):
         if not row:
             raise HTTPException(status_code=404, detail="Quiz not found.")
 
-        id, player_id, title, description, cover_photo, name, image, date, count = row
+        (
+            id,
+            player_id,
+            title,
+            description,
+            cover_photo,
+            name,
+            image,
+            date,
+            count,
+        ) = row
 
-        if player_id == user_id:
-            is_this_me = True
-        if player_id != user_id:
-            is_this_me = False
+        is_this_me = player_id == user_id
 
-        follower_count_query = """
-        SELECT COUNT(*) FROM follows WHERE following_id = %s
+        plays_query = """
+            SELECT COUNT(rp.id)
+            FROM rooms r
+            JOIN room_participants rp ON rp.room_id = r.id
+            WHERE r.quiz_id = %s
         """
-        cursor.execute(follower_count_query, (user_id,))
+        cursor.execute(plays_query, (quiz_id,))
+        plays = cursor.fetchone()[0]
+
+        cursor.execute(
+            "SELECT COUNT(*) FROM follows WHERE following_id = %s", (user_id,)
+        )
         follower_count = cursor.fetchone()[0]
 
-        following_count_query = """
-        SELECT COUNT(*) FROM follows WHERE follower_id = %s
-        """
-        cursor.execute(following_count_query, (user_id,))
+        cursor.execute(
+            "SELECT COUNT(*) FROM follows WHERE follower_id = %s", (user_id,)
+        )
         following_count = cursor.fetchone()[0]
 
-        is_followed_query = """
-        SELECT 1 FROM follows WHERE follower_id = %s AND following_id = %s
-        """
-        cursor.execute(is_followed_query, (user_id, player_id))
+        cursor.execute(
+            "SELECT 1 FROM follows WHERE follower_id = %s AND following_id = %s",
+            (user_id, player_id),
+        )
         is_followed = cursor.fetchone() is not None
+
+        cursor.execute(
+            "SELECT 1 FROM user_favourites WHERE user_id = %s AND quiz_id = %s",
+            (user_id, quiz_id),
+        )
+        is_favourite = cursor.fetchone() is not None
 
         result = {
             "id": id,
@@ -355,7 +375,7 @@ def get_quiz_by_id(quiz_id: str, auth: dict = Depends(verify_bearer_token)):
             "cover_photo": cover_photo,
             "author": name,
             "image": image,
-            "plays": rd.randint(1, 100),
+            "plays": plays,
             "date": date,
             "is_this_me": is_this_me,
             "count": count,
@@ -363,6 +383,7 @@ def get_quiz_by_id(quiz_id: str, auth: dict = Depends(verify_bearer_token)):
             "following": following_count,
             "is_followed": is_followed,
             "quiz_creator_id": player_id,
+            "is_favourite": is_favourite,
         }
 
         return {"message": "Response Successful", "data": result}
