@@ -408,12 +408,19 @@ def delete_question(
     cursor = connection.cursor()
 
     try:
+
+        delete_room_answers_query = """
+        DELETE FROM room_answers
+        WHERE question_id = %s
+        """
+        cursor.execute(delete_room_answers_query, (question_id,))
+
         delete_question_query = """
         DELETE FROM quiz_questions 
         WHERE quiz_id=%s AND id=%s
         """
-
         cursor.execute(delete_question_query, (quiz_id, question_id))
+
         if cursor.rowcount == 0:
             raise HTTPException(status_code=404, detail="Question not found")
 
