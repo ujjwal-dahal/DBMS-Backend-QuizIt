@@ -461,10 +461,11 @@ async def login_google(request: Request):
 async def auth_google(request: Request):
     try:
         token = await oauth.google.authorize_access_token(request)
+        user_info = await oauth.google.parse_id_token(request, token)
     except OAuthError as e:
         raise HTTPException(status_code=400, detail=f"OAuth Error: {str(e)}")
-
-    user_info = await oauth.google.parse_id_token(request, token)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Internal Server Error: {str(e)}")
 
     if not user_info:
         raise HTTPException(
