@@ -46,7 +46,7 @@ async def upload_quiz(
 
         upload_result = cloudinary_upload(
             file_bytes,
-            folder=f"QuizIt/Quiz_Cover_Photos/User_{user_id}",
+            folder=f"QuizIt/Quiz_Cover_Photos/User_{user_id}_Quiz",
             public_id=unique_public_id,
             overwrite=False,
         )

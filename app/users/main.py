@@ -624,7 +624,7 @@ async def edit_profile_page(
 
             upload_result = cloudinary_upload(
                 file_bytes,
-                folder=f"QuizIt/Profile_Pictures/Creator_ID_{creator_id}_Profile",
+                folder=f"QuizIt/Profile_Pictures/User_ID_{creator_id}_Profile",
                 public_id=unique_public_id,
                 overwrite=False,
             )
