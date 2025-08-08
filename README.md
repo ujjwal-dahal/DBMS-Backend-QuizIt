@@ -1,5 +1,8 @@
 # 📚 QuizIT Backend (FastAPI)
 
+<img width="1920" height="446" alt="QuizIt_Backend1" src="https://github.com/user-attachments/assets/9d38d840-b9a7-4bd9-970b-9d11b2b5f9ec" />
+
+
 QuizIT Backend is a **FastAPI-powered** REST API and WebSocket server designed to handle quiz creation, user authentication, real-time multiplayer quizzes, and scoring.  
 It is built with a **modular architecture** for scalability and easy maintenance.
 
@@ -63,5 +66,7 @@ Server will be available at: http://127.0.0.1:8000
 
 <img width="3468" height="1340" alt="technology" src="https://github.com/user-attachments/assets/7ea54fde-e23d-460f-ac13-5492ff5016d7" />
 
+# Our Team
 
+<img width="1266" height="767" alt="QuizIt Api" src="https://github.com/user-attachments/assets/6a981074-060b-4bdf-b31b-ceac0b1064ec" />
 
