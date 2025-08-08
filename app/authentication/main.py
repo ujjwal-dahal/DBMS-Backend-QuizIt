@@ -425,7 +425,8 @@ def get_authenticated_user(auth: dict = Depends(verify_bearer_token)):
         user_id = auth.get("id")
 
         cursor.execute(
-            "SELECT id, username, email, full_name FROM Users WHERE id = %s", (user_id,)
+            "SELECT id, username, email, full_name, photo FROM Users WHERE id = %s",
+            (user_id,),
         )
         user = cursor.fetchone()
 
@@ -435,7 +436,7 @@ def get_authenticated_user(auth: dict = Depends(verify_bearer_token)):
         access_token = get_access_token({"id": user_id}, ACCESS_TOKEN_EXPIRY)
         refresh_token = get_refresh_token({"id": user_id}, REFRESH_TOKEN_EXPIRY)
 
-        user_id, username, email, full_name = user
+        user_id, username, email, full_name, photo = user
 
         return JSONResponse(
             content={
@@ -447,6 +448,7 @@ def get_authenticated_user(auth: dict = Depends(verify_bearer_token)):
                     "username": username,
                     "email": email,
                     "full_name": full_name,
+                    "image": photo,
                 },
             }
         )
