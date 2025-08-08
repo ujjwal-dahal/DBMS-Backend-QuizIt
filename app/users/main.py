@@ -149,12 +149,12 @@ def user_page(quiz_id: str, user: dict = Depends(verify_bearer_token)):
     cursor = connection.cursor()
 
     try:
+
         query = """
         SELECT 
             q.cover_photo,
             q.title,
             q.description,
-            q.tag,  
             qq.id,
             qq.question,
             qq.question_index,
@@ -163,37 +163,48 @@ def user_page(quiz_id: str, user: dict = Depends(verify_bearer_token)):
             qq.points,
             qq.duration,
             q.id
-        FROM quizzes as q
-        JOIN users as u ON u.id = q.creator_id
-        JOIN quiz_questions as qq ON qq.quiz_id = q.id
+        FROM quizzes AS q
+        JOIN users AS u ON u.id = q.creator_id
+        JOIN quiz_questions AS qq ON qq.quiz_id = q.id
         WHERE u.id = %s AND q.id = %s
         """
-
         cursor.execute(query, (user_id, quiz_id))
         fetched_data = cursor.fetchall()
 
         if not fetched_data:
             raise HTTPException(status_code=404, detail="Not Found")
 
-        quiz_id = fetched_data[0][11]
+        # 2. Tags query
+        tags_query = """
+        SELECT t.name
+        FROM tags AS t
+        JOIN quiz_tags AS qt ON qt.tag_id = t.id
+        WHERE qt.quiz_id = %s
+        """
+        cursor.execute(tags_query, (quiz_id,))
+        tags_data = cursor.fetchall()
+        tags = [tag[0] for tag in tags_data]
+
+        # Prepare quiz data
+        quiz_id = fetched_data[0][10]
         cover_photo = fetched_data[0][0]
         title = fetched_data[0][1]
         description = fetched_data[0][2]
-        tag = fetched_data[0][3]
 
         questions = []
         for row in fetched_data:
             questions.append(
                 {
-                    "id": row[4],
-                    "question": row[5],
-                    "question_index": row[6],
-                    "options": row[7],
-                    "correct_option": row[8],
-                    "points": row[9],
-                    "duration": row[10],
+                    "id": row[3],
+                    "question": row[4],
+                    "question_index": row[5],
+                    "options": row[6],
+                    "correct_option": row[7],
+                    "points": row[8],
+                    "duration": row[9],
                 }
             )
+
         return {
             "user_id": user_id,
             "edit_data": {
@@ -201,7 +212,7 @@ def user_page(quiz_id: str, user: dict = Depends(verify_bearer_token)):
                 "cover_photo": cover_photo,
                 "title": title,
                 "description": description,
-                "tag": tag,
+                "tags": tags,
                 "questions": questions,
             },
         }
