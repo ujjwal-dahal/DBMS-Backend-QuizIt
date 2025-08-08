@@ -1,15 +1,19 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, File, UploadFile, Form
 from datetime import datetime, timezone
 import json
 import random as rd
 from cryptography.fernet import Fernet
 from dotenv import load_dotenv
 import os
+from cloudinary.uploader import upload as cloudinary_upload
+import uuid
+
 
 # Project Imports
 from .quiz_models.quiz_model import QuizSchema, QuizTag
 from services.response_handler import verify_bearer_token
 from database.connect_db import connect_database
+from services.cloudinary_config import configure_cloudinary
 
 load_dotenv()
 
@@ -17,100 +21,118 @@ ENCRYPTION_KEY = os.getenv("ENCRYPTION_KEY")
 
 app = APIRouter()
 fernet = Fernet(ENCRYPTION_KEY)
+configure_cloudinary()
 
 
 @app.post("/upload-quiz")
-def upload_quiz(quiz_data: QuizSchema, auth: dict = Depends(verify_bearer_token)):
+async def upload_quiz(
+    cover_photo: UploadFile = File(...),
+    title: str = Form(...),
+    description: str = Form(...),
+    is_published: bool = Form(...),
+    questions: str = Form(...),
+    tags: str = Form(...),
+    auth: dict = Depends(verify_bearer_token),
+):
     connection = connect_database()
     cursor = connection.cursor()
     user_id = auth.get("id")
-    created_at = datetime.now(timezone.utc)
+
     try:
-        query_into_quiz = """
-            INSERT INTO quizzes ( cover_photo , title , description , is_published , created_at , creator_id )
-            VALUES
-            ( %s,%s,%s,%s,%s,%s )
-            RETURNING id
+
+        file_bytes = await cover_photo.read()
+
+        unique_public_id = f"quiz_cover_{user_id}_{uuid.uuid4().hex}"
+
+        upload_result = cloudinary_upload(
+            file_bytes,
+            folder=f"quiz_covers/user_{user_id}",
+            public_id=unique_public_id,
+            overwrite=False,
+        )
+
+        cover_photo_url = upload_result.get("secure_url")
+        if not cover_photo_url:
+            raise HTTPException(
+                status_code=500, detail="Failed to upload quiz cover photo"
+            )
+
+        created_at = datetime.now(timezone.utc)
+
+        insert_quiz_query = """
+            INSERT INTO quizzes (cover_photo, title, description, is_published, created_at, creator_id)
+            VALUES (%s, %s, %s, %s, %s, %s) RETURNING id
         """
 
         cursor.execute(
-            query_into_quiz,
+            insert_quiz_query,
             (
-                quiz_data.cover_photo,
-                quiz_data.title,
-                quiz_data.description,
-                quiz_data.is_published,
+                cover_photo_url,
+                title,
+                description,
+                is_published,
                 created_at,
                 user_id,
             ),
         )
-
         returned_quiz_id = cursor.fetchone()
-
         if not returned_quiz_id:
-            raise HTTPException(
-                status_code=500, detail="Unable to Insert into Database"
-            )
+            raise HTTPException(status_code=500, detail="Unable to insert quiz")
 
         quiz_id = returned_quiz_id[0]
 
-        for q in quiz_data.questions:
-
+        questions_data = json.loads(questions)
+        for q in questions_data:
             question_query = """
-            INSERT INTO quiz_questions ( question , question_index, options, correct_option , points , duration, quiz_id )
-            VALUES
-            (%s,%s,%s,%s,%s,%s,%s)
-            RETURNING id
+                INSERT INTO quiz_questions (question, question_index, options, correct_option, points, duration, quiz_id)
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
             """
-
             cursor.execute(
                 question_query,
                 (
-                    q.question,
-                    q.question_index,
-                    json.dumps(q.options),
-                    q.correct_option,
-                    q.points,
-                    q.duration,
-                    returned_quiz_id[0],
+                    q.get("question"),
+                    q.get("question_index"),
+                    json.dumps(q.get("options")),
+                    q.get("correct_option"),
+                    q.get("points"),
+                    q.get("duration"),
+                    quiz_id,
                 ),
             )
 
-        tag_query = """
-        INSERT INTO tags (name)
-        VALUES (%s) RETURNING id
-        """
-        for tag in quiz_data.tags:
+        tags_data = json.loads(tags)
+        for tag in tags_data:
             cursor.execute("SELECT id FROM tags WHERE name=%s", (tag,))
-            existing_data = cursor.fetchone()
-
-            if existing_data:
-                tag_id = existing_data[0]
+            existing_tag = cursor.fetchone()
+            if existing_tag:
+                tag_id = existing_tag[0]
             else:
-                cursor.execute(tag_query, (tag,))
+                cursor.execute(
+                    "INSERT INTO tags (name) VALUES (%s) RETURNING id", (tag,)
+                )
                 tag_id = cursor.fetchone()[0]
 
-            quiz_tag_query = """
-            INSERT INTO quiz_tags (quiz_id , tag_id)
-            VALUES
-            (%s,%s)
-            """
-            cursor.execute(quiz_tag_query, (quiz_id, tag_id))
+            cursor.execute(
+                "INSERT INTO quiz_tags (quiz_id, tag_id) VALUES (%s, %s)",
+                (quiz_id, tag_id),
+            )
 
         connection.commit()
 
-        return {"message": "Quiz Uploaded Successfully", "quiz_id": quiz_id}
+        return {
+            "message": "Quiz Uploaded Successfully",
+            "quiz_id": quiz_id,
+            "cover_photo_url": cover_photo_url,
+        }
 
     except Exception as e:
         if connection:
             connection.rollback()
-
         raise HTTPException(status_code=500, detail=str(e))
 
     finally:
         if cursor:
             cursor.close()
-
         if connection:
             connection.close()
 
