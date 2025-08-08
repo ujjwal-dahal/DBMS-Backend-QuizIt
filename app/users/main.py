@@ -694,7 +694,6 @@ def my_quizzes(
             return {"data": []}
 
         result = []
-
         for data in fetch_all_data:
             (
                 quiz_id,
@@ -708,38 +707,6 @@ def my_quizzes(
                 question_count,
             ) = data
 
-            get_all_questions_query = """
-            SELECT qq.id, qq.question, qq.question_index, qq.options,
-                   qq.correct_option, qq.points, qq.duration
-            FROM quiz_questions AS qq
-            WHERE qq.quiz_id = %s
-            """
-            cursor.execute(get_all_questions_query, (quiz_id,))
-            fetch_all_questions = cursor.fetchall()
-
-            question_result = []
-            for qq in fetch_all_questions:
-                (
-                    id,
-                    question,
-                    question_index,
-                    options,
-                    correct_option,
-                    points,
-                    duration,
-                ) = qq
-                question_result.append(
-                    {
-                        "question_id": id,
-                        "question": question,
-                        "question_index": question_index,
-                        "options": options,
-                        "correct_option": correct_option,
-                        "points": points,
-                        "duration": duration,
-                    }
-                )
-
             result.append(
                 {
                     "id": quiz_id,
@@ -751,7 +718,6 @@ def my_quizzes(
                     "plays": total_plays,
                     "date": created_at,
                     "count": question_count,
-                    "questions": question_result,
                 }
             )
 
