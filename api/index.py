@@ -54,3 +54,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.get("/check-auth", response_class=HTMLResponse)
+async def homepage(request: Request):
+    return templates.TemplateResponse("check_auth.html", {"request": request})

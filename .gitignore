@@ -5,3 +5,5 @@ myenv
 extra_code.txt
 
 venv
+
+api/templates/check_auth.html

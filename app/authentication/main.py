@@ -1,5 +1,6 @@
 from fastapi import APIRouter, HTTPException, Depends, Request
 from fastapi.responses import JSONResponse, RedirectResponse
+import os
 
 # Project Imports
 from .auth_models.auth_models import (
@@ -462,8 +463,6 @@ async def login_google(request: Request):
 async def auth_google(request: Request):
     try:
         token = await oauth.google.authorize_access_token(request)
-        print("Token:", token)
-
         user_info = token.get("userinfo")
 
         if not user_info:
@@ -487,11 +486,25 @@ async def auth_google(request: Request):
     user = cursor.fetchone()
 
     if not user:
-        cursor.execute(
-            "INSERT INTO users (email, full_name, username, photo, is_verified, created_at) VALUES (%s,%s,%s,%s,%s,NOW()) RETURNING id",
-            (email, full_name, email.split("@")[0], picture, True),
-        )
+        random_password = os.urandom(16).hex()
+        hashed_password = hash_password(random_password)
 
+        cursor.execute(
+            """
+            INSERT INTO users (email, full_name, username, photo, auth_provider, is_verified, hashed_password, created_at)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, NOW())
+            RETURNING id
+            """,
+            (
+                email,
+                full_name,
+                email.split("@")[0],
+                picture,
+                "google",
+                True,
+                hashed_password,
+            ),
+        )
         user_id = cursor.fetchone()[0]
         connection.commit()
     else:
