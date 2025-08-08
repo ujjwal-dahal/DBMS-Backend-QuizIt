@@ -1,12 +1,15 @@
-from fastapi import APIRouter, HTTPException, Query, Depends, Body
-from fastapi.responses import JSONResponse
+from fastapi import APIRouter, HTTPException, Query, Depends, UploadFile, File, Form
 from database.connect_db import connect_database
 from services.response_handler import verify_bearer_token
-from typing import Annotated, List, Dict
 import json
-from app.users.models.quiz_model import QuizSchema, UpdateProfileSchema
+from cloudinary.uploader import upload as cloudinary_upload
+from services.cloudinary_config import configure_cloudinary
+from app.users.models.quiz_model import QuizSchema
+from typing import Optional, Annotated
+import uuid
 
 router = APIRouter()
+configure_cloudinary()
 
 
 @router.get("/")
@@ -581,17 +584,23 @@ def get_profile_data_for_edit(auth: dict = Depends(verify_bearer_token)):
 
 
 @router.put("/profile/edit")
-def edit_profile_page(
-    update_data: UpdateProfileSchema, auth: dict = Depends(verify_bearer_token)
+async def edit_profile_page(
+    full_name: Optional[str] = Form(None),
+    username: Optional[str] = Form(None),
+    photo: Optional[UploadFile] = File(None),
+    auth: dict = Depends(verify_bearer_token),
 ):
     connection = connect_database()
     cursor = connection.cursor()
     creator_id = auth.get("id")
 
+    photo_url = None
+
     try:
-        if update_data.username:
+        if username:
             cursor.execute(
-                "SELECT * FROM users WHERE username=%s", (update_data.username,)
+                "SELECT * FROM users WHERE username=%s AND id != %s",
+                (username, creator_id),
             )
             existing_username = cursor.fetchone()
             if existing_username:
@@ -600,17 +609,33 @@ def edit_profile_page(
         fields = []
         values = []
 
-        if update_data.full_name is not None:
+        if full_name is not None:
             fields.append("full_name = %s")
-            values.append(update_data.full_name)
+            values.append(full_name)
 
-        if update_data.username is not None:
+        if username is not None:
             fields.append("username = %s")
-            values.append(update_data.username)
+            values.append(username)
 
-        if update_data.photo is not None:
+        if photo is not None:
+            file_bytes = await photo.read()
+
+            unique_public_id = f"user_{creator_id}_{uuid.uuid4().hex}"
+
+            upload_result = cloudinary_upload(
+                file_bytes,
+                folder=f"profile_photos/creator_id_{creator_id}_profile",
+                public_id=unique_public_id,
+                overwrite=False,
+            )
+
+            photo_url = upload_result.get("secure_url")
+
+            if not photo_url:
+                raise HTTPException(status_code=500, detail="Failed to upload photo")
+
             fields.append("photo = %s")
-            values.append(update_data.photo)
+            values.append(photo_url)
 
         if not fields:
             raise HTTPException(status_code=400, detail="No fields provided for update")
@@ -626,7 +651,10 @@ def edit_profile_page(
         cursor.execute(update_query, tuple(values))
         connection.commit()
 
-        return {"message": "Updated User Data Successfully"}
+        return {
+            "message": "Updated User Data Successfully",
+            "photo_url": photo_url,
+        }
 
     except Exception as e:
         if connection:
