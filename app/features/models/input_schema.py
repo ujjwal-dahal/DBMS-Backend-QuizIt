@@ -12,3 +12,7 @@ class InviteSchame(BaseModel):
 
 class FavouriteQuizSchema(BaseModel):
     quiz_id: str
+
+
+class EncryptedDataSchema(BaseModel):
+    encrypted_text: str

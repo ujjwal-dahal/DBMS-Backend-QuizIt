@@ -1,5 +1,8 @@
 from fastapi import APIRouter, HTTPException, Depends
 from typing import List
+from cryptography.fernet import Fernet
+from dotenv import load_dotenv
+import os
 
 # FastAPI Projects Import
 from services.response_handler import verify_bearer_token
@@ -13,10 +16,14 @@ from app.features.models.input_schema import (
     FollowSchema,
     InviteSchame,
     FavouriteQuizSchema,
+    EncryptedDataSchema,
 )
 from messages.invited_user_email import invite_message
 
+load_dotenv()
 app = APIRouter()
+FERNET_KEY = os.getenv("ENCRYPTION_KEY")
+fernet = Fernet(FERNET_KEY)
 
 
 @app.post("/follow-user")
@@ -389,3 +396,15 @@ def get_favourite_quizzes(auth: dict = Depends(verify_bearer_token)):
     finally:
         cursor.close()
         connection.close()
+
+
+@app.post("/quiz/decrypt")
+def decrypt_data(data: EncryptedDataSchema):
+    try:
+        decrypted_bytes = fernet.decrypt(data.encrypted_text.encode())
+        decrypted_text = decrypted_bytes.decode()
+        return {"decrypted_answer": int(decrypted_text)}
+    except Exception as e:
+        raise HTTPException(
+            status_code=400, detail="Decryption failed or invalid token"
+        )

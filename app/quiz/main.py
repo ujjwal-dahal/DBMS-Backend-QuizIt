@@ -10,7 +10,7 @@ import uuid
 
 
 # Project Imports
-from .quiz_models.quiz_model import QuizSchema, QuizTag
+from .quiz_models.quiz_model import QuizTag
 from services.response_handler import verify_bearer_token
 from database.connect_db import connect_database
 from services.cloudinary_config import configure_cloudinary
