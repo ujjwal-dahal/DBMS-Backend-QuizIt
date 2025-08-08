@@ -1,13 +1,22 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
-from fastapi.responses import JSONResponse
-from .quiz_models.quiz_model import QuizSchema, QuizTag
-from services.response_handler import verify_bearer_token
-from database.connect_db import connect_database
 from datetime import datetime, timezone
 import json
 import random as rd
+from cryptography.fernet import Fernet
+from dotenv import load_dotenv
+import os
+
+# Project Imports
+from .quiz_models.quiz_model import QuizSchema, QuizTag
+from services.response_handler import verify_bearer_token
+from database.connect_db import connect_database
+
+load_dotenv()
+
+ENCRYPTION_KEY = os.getenv("ENCRYPTION_KEY")
 
 app = APIRouter()
+fernet = Fernet(ENCRYPTION_KEY)
 
 
 @app.post("/upload-quiz")
@@ -388,10 +397,9 @@ def get_quiz_questions(quiz_id: str, auth: dict = Depends(verify_bearer_token)):
     cursor = connection.cursor()
 
     try:
-
         get_all_quiz_questions_query = """
             SELECT qq.id, qq.question, qq.question_index, qq.options,
-            qq.correct_option, qq.points, qq.duration
+                   qq.correct_option, qq.points, qq.duration
             FROM quiz_questions AS qq
             WHERE qq.quiz_id = %s
         """
@@ -410,19 +418,27 @@ def get_quiz_questions(quiz_id: str, auth: dict = Depends(verify_bearer_token)):
                 points,
                 duration,
             ) = qq
+
+            encrypted_correct_option = fernet.encrypt(
+                str(correct_option).encode()
+            ).decode()
+
             question_result.append(
                 {
                     "question_id": id,
                     "question": question,
                     "question_index": question_index,
                     "options": options,
-                    "correct_option": correct_option,
+                    "correct_option": encrypted_correct_option,
                     "points": points,
                     "duration": duration,
                 }
             )
 
-        return {"message": "Successfull Response", "data": question_result}
+        return {
+            "message": "Successful Response",
+            "data": question_result,
+        }
 
     except Exception as e:
         if connection:
