@@ -25,3 +25,22 @@ class UpdateProfileSchema(BaseModel):
     full_name: Optional[str] = Field(default=None, example="Full Name of User")
     username: Optional[str] = Field(default=None, example="Username of User")
     photo: Optional[str] = Field(default=None, example="Photo of User")
+
+
+class QuestionUpdate(BaseModel):
+    id: Optional[
+        int
+    ]  # If existing question, id is present; for new question, id is None
+    question: str
+    question_index: int
+    options: list
+    correct_option: int
+    points: Optional[int] = 1
+    duration: Optional[int] = 30
+
+
+class QuizUpdateSchema(BaseModel):
+    title: str
+    description: Optional[str]
+    questions: List[QuestionUpdate]
+    tags: List[str]

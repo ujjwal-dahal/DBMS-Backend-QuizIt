@@ -4,9 +4,11 @@ from services.response_handler import verify_bearer_token
 import json
 from cloudinary.uploader import upload as cloudinary_upload
 from services.cloudinary_config import configure_cloudinary
-from app.users.models.quiz_model import QuizSchema
 from typing import Optional, Annotated
 import uuid
+
+# Project Imports
+from app.users.models.quiz_model import QuestionUpdate, QuizUpdateSchema
 
 router = APIRouter()
 configure_cloudinary()
@@ -174,7 +176,6 @@ def user_page(quiz_id: str, user: dict = Depends(verify_bearer_token)):
         if not fetched_data:
             raise HTTPException(status_code=404, detail="Not Found")
 
-        # 2. Tags query
         tags_query = """
         SELECT t.name
         FROM tags AS t
@@ -185,7 +186,6 @@ def user_page(quiz_id: str, user: dict = Depends(verify_bearer_token)):
         tags_data = cursor.fetchall()
         tags = [tag[0] for tag in tags_data]
 
-        # Prepare quiz data
         quiz_id = fetched_data[0][10]
         cover_photo = fetched_data[0][0]
         title = fetched_data[0][1]
@@ -230,70 +230,132 @@ def user_page(quiz_id: str, user: dict = Depends(verify_bearer_token)):
 
 
 @router.put("/me/{quiz_id}/edit")
-def edit_user_quiz(
-    quiz_id: str, update_data: QuizSchema, user: dict = Depends(verify_bearer_token)
+async def edit_user_quiz(
+    quiz_id: int,
+    title: str = Form(...),
+    description: str = Form(None),
+    cover_photo: UploadFile | None = File(None),
+    questions: str = Form(...),
+    tags: str = Form(...),
+    user: dict = Depends(verify_bearer_token),
 ):
     user_id = user.get("id")
     connection = connect_database()
     cursor = connection.cursor()
 
     try:
+        questions_data = json.loads(questions)
+        tags_data = json.loads(tags)
 
-        if not update_data:
-            raise HTTPException(status_code=404, detail="No any Update Data")
+        if cover_photo:
+            file_bytes = await cover_photo.read()
+            unique_public_id = f"quiz_cover_{user_id}_{uuid.uuid4().hex}"
+            upload_result = cloudinary_upload(
+                file_bytes,
+                folder=f"QuizIt/Quiz_Cover_Photos/User_{user_id}_Quiz",
+                public_id=unique_public_id,
+                overwrite=False,
+            )
+            cover_photo_url = upload_result.get("secure_url")
+        else:
+            cursor.execute("SELECT cover_photo FROM quizzes WHERE id=%s", (quiz_id,))
+            result = cursor.fetchone()
+            cover_photo_url = result[0] if result else None
 
-        cover_photo = update_data.cover_photo
-        title = update_data.title
-        description = update_data.description
-        creator_id = user_id
-
-        query = """
+        update_query = """
             UPDATE quizzes
             SET cover_photo = %s,
-            title = %s,
-            description = %s
+                title = %s,
+                description = %s
             WHERE id = %s AND creator_id = %s
         """
+        cursor.execute(
+            update_query, (cover_photo_url, title, description, quiz_id, user_id)
+        )
 
-        cursor.execute(query, (cover_photo, title, description, quiz_id, creator_id))
-
-        for q in update_data.questions:
-            question_query = """
+        existing_question_ids = []
+        for q in questions_data:
+            if q.get("id"):
+                cursor.execute(
+                    """
                     UPDATE quiz_questions
                     SET question = %s,
-                    question_index = %s,
-                    options = %s,
-                    correct_option = %s,
-                    points = %s,
-                    duration = %s
-                    WHERE quiz_id = %s AND question_index = %s
+                        question_index = %s,
+                        options = %s,
+                        correct_option = %s,
+                        points = %s,
+                        duration = %s
+                    WHERE id = %s AND quiz_id = %s
+                    """,
+                    (
+                        q["question"],
+                        q["question_index"],
+                        json.dumps(q["options"]),
+                        q["correct_option"],
+                        q.get("points", 1),
+                        q.get("duration", 30),
+                        q["id"],
+                        quiz_id,
+                    ),
+                )
+                existing_question_ids.append(q["id"])
+            else:
+                cursor.execute(
                     """
+                    INSERT INTO quiz_questions
+                    (question, question_index, options, correct_option, points, duration, quiz_id)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s)
+                    RETURNING id
+                    """,
+                    (
+                        q["question"],
+                        q["question_index"],
+                        json.dumps(q["options"]),
+                        q["correct_option"],
+                        q.get("points", 1),
+                        q.get("duration", 30),
+                        quiz_id,
+                    ),
+                )
+                new_id = cursor.fetchone()[0]
+                existing_question_ids.append(new_id)
 
+        if existing_question_ids:
             cursor.execute(
-                question_query,
-                (
-                    q.question,
-                    q.question_index,
-                    json.dumps(q.options),
-                    q.correct_option,
-                    q.points,
-                    q.duration,
-                    quiz_id,
-                    q.question_index,
-                ),
+                "DELETE FROM quiz_questions WHERE quiz_id = %s AND id NOT IN %s",
+                (quiz_id, tuple(existing_question_ids)),
+            )
+        else:
+            cursor.execute("DELETE FROM quiz_questions WHERE quiz_id = %s", (quiz_id,))
+
+        tag_ids = []
+        for tag_name in tags_data:
+            cursor.execute("SELECT id FROM tags WHERE name = %s", (tag_name,))
+            tag_row = cursor.fetchone()
+            if tag_row:
+                tag_ids.append(tag_row[0])
+            else:
+                cursor.execute(
+                    "INSERT INTO tags (name) VALUES (%s) RETURNING id", (tag_name,)
+                )
+                new_tag_id = cursor.fetchone()[0]
+                tag_ids.append(new_tag_id)
+
+        cursor.execute("DELETE FROM quiz_tags WHERE quiz_id = %s", (quiz_id,))
+
+        for tid in tag_ids:
+            cursor.execute(
+                "INSERT INTO quiz_tags (quiz_id, tag_id) VALUES (%s, %s) ON CONFLICT DO NOTHING",
+                (quiz_id, tid),
             )
 
         connection.commit()
-        return {
-            "message": "Updated Successfully",
-            "quiz_id": quiz_id,
-            "updated_questions": len(update_data.questions),
-        }
+
+        return {"message": "Quiz, questions and tags updated successfully"}
 
     except Exception as e:
         if connection:
             connection.rollback()
-
         raise HTTPException(status_code=500, detail=str(e))
 
     finally:
