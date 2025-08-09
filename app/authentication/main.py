@@ -1,6 +1,9 @@
 from fastapi import APIRouter, HTTPException, Depends, Request
 from fastapi.responses import JSONResponse, RedirectResponse
 import os
+import requests
+import uuid
+import io
 
 # Project Imports
 from .auth_models.auth_models import (
@@ -33,7 +36,9 @@ from helper.config import (
 )
 from helper.oauth_config import oauth
 from authlib.integrations.starlette_client import OAuthError
-from helper.config import QUIZIT_URL, GOOGLE_REVOKE_URL
+from helper.config import QUIZIT_URL
+from cloudinary.uploader import upload as cloudinary_upload
+from services.cloudinary_config import configure_cloudinary
 
 app = APIRouter()
 
@@ -479,7 +484,31 @@ async def auth_google(request: Request):
 
     email = user_info.get("email")
     full_name = user_info.get("name")
-    picture = user_info.get("picture")
+    picture_url = user_info.get("picture")
+
+    safe_email = email.replace("@", "_at_").replace(".", "_dot_")
+
+    try:
+        img_response = requests.get(picture_url)
+        img_response.raise_for_status()
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"Failed to download Google picture: {str(e)}"
+        )
+
+    try:
+        unique_public_id = f"user_{safe_email}_{uuid.uuid4().hex}"
+        upload_result = cloudinary_upload(
+            io.BytesIO(img_response.content),
+            folder=f"QuizIt/Profile_Pictures/User_{safe_email}_Profile",
+            public_id=unique_public_id,
+            overwrite=False,
+        )
+        photo_url = upload_result.get("secure_url")
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"Failed to upload to Cloudinary: {str(e)}"
+        )
 
     connection = connect_database()
     cursor = connection.cursor()
@@ -501,7 +530,7 @@ async def auth_google(request: Request):
                 email,
                 full_name,
                 email.split("@")[0],
-                picture,
+                photo_url,
                 "google",
                 True,
                 hashed_password,
@@ -511,6 +540,8 @@ async def auth_google(request: Request):
         connection.commit()
     else:
         user_id = user[0]
+        cursor.execute("UPDATE users SET photo=%s WHERE id=%s", (photo_url, user_id))
+        connection.commit()
 
     cursor.close()
     connection.close()
@@ -518,7 +549,7 @@ async def auth_google(request: Request):
     access_token = get_access_token({"id": user_id}, expiry_minutes=ACCESS_TOKEN_EXPIRY)
     refresh_token = get_refresh_token({"id": user_id}, expiry_time=REFRESH_TOKEN_EXPIRY)
 
-    frontend_url = f"{QUIZIT_URL}/redirect" f"?refresh_token={refresh_token}"
+    frontend_url = f"{QUIZIT_URL}/redirect?refresh_token={refresh_token}"
     return RedirectResponse(url=frontend_url)
 
 
