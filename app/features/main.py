@@ -16,6 +16,8 @@ from app.features.models.input_schema import (
     InviteSchame,
     FavouriteQuizSchema,
     EncryptedDataSchema,
+    ContactUsSchema,
+    FeedbackSchema,
 )
 from messages.invited_user_email import invite_message
 from helper.config import FERNET_KEY
@@ -527,3 +529,55 @@ def search_users(
     finally:
         cursor.close()
         connection.close()
+
+
+@app.post("/contact-us")
+async def submit_contact_us(
+    payload: ContactUsSchema, auth: dict = Depends(verify_bearer_token)
+):
+    connection = connect_database()
+    cursor = connection.cursor()
+    user_id = auth.get("id")
+    try:
+        cursor.execute(
+            """
+            INSERT INTO contact_us (user_id, name, email, question, created_at)
+            VALUES (%s, %s, %s, %s)
+            """,
+            (user_id, payload.name, payload.email, payload.question),
+        )
+        connection.commit()
+    except Exception as e:
+        connection.rollback()
+        raise HTTPException(status_code=500, detail="Database error: " + str(e))
+    finally:
+        cursor.close()
+        connection.close()
+
+    return {"message": "Contact us submitted successfully."}
+
+
+@app.post("/feedback")
+async def submit_feedback(
+    payload: FeedbackSchema, auth: dict = Depends(verify_bearer_token)
+):
+    connection = connect_database()
+    cursor = connection.cursor()
+    user_id = auth.get("id")
+    try:
+        cursor.execute(
+            """
+            INSERT INTO feedback (user_id, reaction, feedback_message, created_at)
+            VALUES (%s, %s, %s)
+            """,
+            (user_id, payload.reaction, payload.feedback_message),
+        )
+        connection.commit()
+    except Exception as e:
+        connection.rollback()
+        raise HTTPException(status_code=500, detail="Database error: " + str(e))
+    finally:
+        cursor.close()
+        connection.close()
+
+    return {"message": "Feedback submitted successfully."}
