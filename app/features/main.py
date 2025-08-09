@@ -542,7 +542,7 @@ async def submit_contact_us(
     try:
         cursor.execute(
             """
-            INSERT INTO contact_us (user_id, name, email, question, created_at)
+            INSERT INTO contact_us (user_id, name, email, question)
             VALUES (%s, %s, %s, %s)
             """,
             (user_id, payload.name, payload.email, payload.question),
@@ -568,7 +568,7 @@ async def submit_feedback(
     try:
         cursor.execute(
             """
-            INSERT INTO feedback (user_id, reaction, feedback_message, created_at)
+            INSERT INTO feedback (user_id, reaction, feedback_message)
             VALUES (%s, %s, %s)
             """,
             (user_id, payload.reaction, payload.feedback_message),
