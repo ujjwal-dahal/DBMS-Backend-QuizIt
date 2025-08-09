@@ -29,15 +29,24 @@ Show a tree of your backend folder so contributors can quickly understand the ar
 ## ⚙️ Installation & Setup
 
 ### 1️⃣ Clone the Repository
-<img width="3468" height="892" alt="clone" src="https://github.com/user-attachments/assets/f8fd0923-4381-4d90-ba94-ce524468f679" />
+```bash
+git clone https://github.com/your-username/ujjwal-dahal-dbms-backend-quizit.git
+cd ujjwal-dahal-dbms-backend-quizit
+```
 
 
 ### 2️⃣ Create Virtual Environment
-<img width="3468" height="968" alt="environment" src="https://github.com/user-attachments/assets/1439dc2a-13bf-4654-8509-31884f039bbb" />
+```bash
+python -m venv myenv
+source myenv/bin/activate  # Mac/Linux
+myenv\Scripts\activate     # Windows
+```
 
 
 ### 3️⃣ Install Dependencies
-<img width="3468" height="820" alt="dependencies" src="https://github.com/user-attachments/assets/182f5455-b100-4cce-a642-eb4845b57829" />
+```bash
+pip install -r requirements.txt
+```
 
 
 
@@ -48,7 +57,9 @@ Create a .env file (or rename env_demo.txt to .env) and fill in your credentials
 
 
 ### 5️⃣ Run the Server
-<img width="3468" height="820" alt="server" src="https://github.com/user-attachments/assets/c913e0e8-0647-4965-85ac-d4293fce6a2d" />
+```bash
+uvicorn api.index:app --reload
+```
 
 Server will be available at: http://127.0.0.1:8000
 
@@ -62,9 +73,16 @@ Server will be available at: http://127.0.0.1:8000
 
 <img width="3468" height="820" alt="docs" src="https://github.com/user-attachments/assets/05cf1f9a-4126-4c04-b571-7adff7d12d79" />
 
+
+## 🖼 Architecture Diagram
+
+<img width="8468" height="2220" alt="QuizIt Backend" src="https://github.com/user-attachments/assets/0107346a-1c6a-4224-82cd-5372a6cbcf22" />
+
+
 ## 🛠 Tech Stack
 
-<img width="3468" height="1340" alt="technology" src="https://github.com/user-attachments/assets/7ea54fde-e23d-460f-ac13-5492ff5016d7" />
+<img width="3468" height="1280" alt="techstack" src="https://github.com/user-attachments/assets/59239098-200b-494b-8e55-c77aafa5d75c" />
+
 
 # Our Team
 
