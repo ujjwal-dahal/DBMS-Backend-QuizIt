@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException, Depends, Request
 from fastapi.responses import JSONResponse, RedirectResponse
 import os
+import requests
 
 # Project Imports
 from .auth_models.auth_models import (
@@ -33,7 +34,7 @@ from helper.config import (
 )
 from helper.oauth_config import oauth
 from authlib.integrations.starlette_client import OAuthError
-from helper.config import QUIZIT_URL
+from helper.config import QUIZIT_URL, GOOGLE_REVOKE_URL
 
 app = APIRouter()
 
@@ -524,6 +525,15 @@ async def auth_google(request: Request):
 
 @app.get("/logout/google")
 async def logout(request: Request):
+
     request.session.pop("user", None)
-    google_logout_url = "https://accounts.google.com/logout"
-    return RedirectResponse(url=google_logout_url)
+
+    token = request.cookies.get("access_token")
+    if token:
+        requests.post(
+            GOOGLE_REVOKE_URL,
+            params={"token": token},
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+        )
+
+    return RedirectResponse(url=f"{QUIZIT_URL}")
