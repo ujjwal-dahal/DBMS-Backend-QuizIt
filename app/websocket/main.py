@@ -148,18 +148,16 @@ async def websocket_endpoint(websocket: WebSocket, room_code: str):
 
         conn = connect_database()
         cursor = conn.cursor()
-        cursor.execute("SELECT username FROM users WHERE id = %s", (user_id,))
+        cursor.execute("SELECT username, photo FROM users WHERE id = %s", (user_id,))
         result = cursor.fetchone()
-        cursor.close()
-        conn.close()
 
         if not result:
             await websocket.close(code=1008)
             return
 
-        username = result[0]
+        username, photo = result
 
-        await manager.connect(websocket, room_code, username, user_id)
+        await manager.connect(websocket, room_code, username, user_id, photo)
 
         while True:
             data = await websocket.receive_text()

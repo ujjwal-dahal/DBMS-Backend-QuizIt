@@ -5,18 +5,32 @@ from typing import Optional
 class ConnectionManager:
     def __init__(self):
         self.active_connections: dict[str, list[WebSocket]] = {}
-        self.room_users: dict[str, set[str]] = {}
-        self.websocket_to_guest: dict[WebSocket, tuple[str, str]] = {}
+        self.room_users: dict[str, dict[int, dict]] = {}
+        self.websocket_to_guest: dict[WebSocket, tuple[str, str, int]] = {}
         self.user_to_websocket: dict[int, WebSocket] = {}
 
     async def connect(
-        self, websocket: WebSocket, room_code: str, guest_name: str, user_id: int
+        self,
+        websocket: WebSocket,
+        room_code: str,
+        guest_name: str,
+        user_id: int,
+        user_photo: str,
     ):
         await websocket.accept()
 
         self.active_connections.setdefault(room_code, []).append(websocket)
-        self.room_users.setdefault(room_code, set()).add(guest_name)
-        self.websocket_to_guest[websocket] = (guest_name, room_code)
+
+        if room_code not in self.room_users:
+            self.room_users[room_code] = {}
+
+        self.room_users[room_code][user_id] = {
+            "id": user_id,
+            "username": guest_name,
+            "photo": user_photo,
+        }
+
+        self.websocket_to_guest[websocket] = (guest_name, room_code, user_id)
         self.user_to_websocket[user_id] = websocket
 
         await self.broadcast_user_list(room_code)
@@ -26,7 +40,7 @@ class ConnectionManager:
         if not guest_info:
             return
 
-        guest_name, room_code = guest_info
+        guest_name, room_code, user_id = guest_info
 
         if room_code in self.active_connections:
             try:
@@ -35,11 +49,12 @@ class ConnectionManager:
                 pass
 
         still_connected = any(
-            name == guest_name and room == room_code
-            for ws, (name, room) in self.websocket_to_guest.items()
+            uid == user_id and room == room_code
+            for ws, (name, room, uid) in self.websocket_to_guest.items()
         )
         if not still_connected:
-            self.room_users.get(room_code, set()).discard(guest_name)
+            if room_code in self.room_users:
+                self.room_users[room_code].pop(user_id, None)
 
         to_remove = [
             uid for uid, ws in self.user_to_websocket.items() if ws == websocket
@@ -48,7 +63,8 @@ class ConnectionManager:
             del self.user_to_websocket[uid]
 
     async def broadcast_user_list(self, room_code: str):
-        users = list(self.room_users.get(room_code, []))
+        users_dict = self.room_users.get(room_code, {})
+        users = list(users_dict.values())
         await self.broadcast("user_list", room_code, data=users)
 
     async def broadcast(
