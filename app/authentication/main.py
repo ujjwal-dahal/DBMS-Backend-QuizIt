@@ -500,7 +500,7 @@ async def auth_google(request: Request):
         unique_public_id = f"user_{safe_email}_{uuid.uuid4().hex}"
         upload_result = cloudinary_upload(
             io.BytesIO(img_response.content),
-            folder=f"QuizIt/Profile_Pictures/User_{safe_email}_Profile",
+            folder=f"QuizIt/Profile_Pictures/Google_Login/User_{safe_email}_Profile",
             public_id=unique_public_id,
             overwrite=False,
         )
