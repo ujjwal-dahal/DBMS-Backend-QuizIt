@@ -18,6 +18,7 @@ from app.features.models.input_schema import (
     EncryptedDataSchema,
     ContactUsSchema,
     FeedbackSchema,
+    AboutUsSchema,
 )
 from messages.invited_user_email import invite_message
 from helper.config import FERNET_KEY
@@ -581,3 +582,63 @@ async def submit_feedback(
         connection.close()
 
     return {"message": "Feedback submitted successfully."}
+
+
+@app.post("/about-us")
+async def create_about_us(payload: AboutUsSchema):
+    connection = connect_database()
+    cursor = connection.cursor()
+    try:
+        cursor.execute(
+            """
+            INSERT INTO about_us (photo_url, full_name, position, faculty, github_link, linkedin_link)
+            VALUES (%s, %s, %s, %s, %s, %s)
+            """,
+            (
+                payload.photo_url,
+                payload.full_name,
+                payload.position,
+                payload.faculty,
+                payload.github_link,
+                payload.linkedin_link,
+            ),
+        )
+        connection.commit()
+    except Exception as e:
+        connection.rollback()
+        raise HTTPException(status_code=500, detail=f"Database error: {e}")
+    finally:
+        cursor.close()
+        connection.close()
+
+    return {"message": "Data Inserted Successfully"}
+
+
+@app.get("/about-us")
+async def get_about_us():
+    connection = connect_database()
+    cursor = connection.cursor()
+    try:
+        cursor.execute(
+            "SELECT photo_url, full_name, position, faculty, github_link, linkedin_link FROM about_us ORDER BY id"
+        )
+        rows = cursor.fetchall()
+        results = []
+        for row in rows:
+            results.append(
+                {
+                    "full_name": row[1],
+                    "photo_url": row[0],
+                    "position": row[2],
+                    "faculty": row[3],
+                    "github_link": row[4],
+                    "linkedin_link": row[5],
+                }
+            )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Database error: {e}")
+    finally:
+        cursor.close()
+        connection.close()
+
+    return {"message": "Response Successfull", "data": results}
