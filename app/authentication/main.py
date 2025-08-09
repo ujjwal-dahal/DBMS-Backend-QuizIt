@@ -33,6 +33,7 @@ from helper.config import (
 )
 from helper.oauth_config import oauth
 from authlib.integrations.starlette_client import OAuthError
+from helper.config import QUIZIT_URL
 
 app = APIRouter()
 
@@ -516,17 +517,9 @@ async def auth_google(request: Request):
     access_token = get_access_token({"id": user_id}, expiry_minutes=ACCESS_TOKEN_EXPIRY)
     refresh_token = get_refresh_token({"id": user_id}, expiry_time=REFRESH_TOKEN_EXPIRY)
 
-    return {
-        "message": "Google login successful",
-        "user": {
-            "id": user_id,
-            "email": email,
-            "full_name": full_name,
-            "image": picture,
-        },
-        "access_token": access_token,
-        "refresh_token": refresh_token,
-    }
+    frontend_url = f"{QUIZIT_URL}/redirect" f"?refresh_token={refresh_token}"
+
+    return RedirectResponse(url=frontend_url)
 
 
 @app.get("/logout/google")
