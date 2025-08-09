@@ -462,6 +462,7 @@ async def login_google(request: Request):
 
 @app.get("/google")
 async def auth_google(request: Request):
+    """After User Select Google Account Redirect Here"""
     try:
         token = await oauth.google.authorize_access_token(request)
         user_info = token.get("userinfo")
@@ -518,7 +519,6 @@ async def auth_google(request: Request):
     refresh_token = get_refresh_token({"id": user_id}, expiry_time=REFRESH_TOKEN_EXPIRY)
 
     frontend_url = f"{QUIZIT_URL}/redirect" f"?refresh_token={refresh_token}"
-
     return RedirectResponse(url=frontend_url)
 
 
