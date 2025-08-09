@@ -3,6 +3,7 @@
 <img width="1920" height="446" alt="QuizIt_Backend1" src="https://github.com/user-attachments/assets/9d38d840-b9a7-4bd9-970b-9d11b2b5f9ec" />
 
 
+
 QuizIT Backend is a **FastAPI-powered** REST API and WebSocket server designed to handle quiz creation, user authentication, real-time multiplayer quizzes, and scoring.  
 It is built with a **modular architecture** for scalability and easy maintenance.
 
