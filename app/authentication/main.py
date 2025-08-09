@@ -1,7 +1,6 @@
 from fastapi import APIRouter, HTTPException, Depends, Request
 from fastapi.responses import JSONResponse, RedirectResponse
 import os
-import requests
 
 # Project Imports
 from .auth_models.auth_models import (
@@ -525,15 +524,8 @@ async def auth_google(request: Request):
 
 @app.get("/logout/google")
 async def logout(request: Request):
-
     request.session.pop("user", None)
-
-    token = request.cookies.get("access_token")
-    if token:
-        requests.post(
-            GOOGLE_REVOKE_URL,
-            params={"token": token},
-            headers={"Content-Type": "application/x-www-form-urlencoded"},
-        )
-
-    return RedirectResponse(url=f"{QUIZIT_URL}")
+    response = RedirectResponse(url=f"{QUIZIT_URL}")
+    response.delete_cookie("access_token")
+    response.delete_cookie("refresh_token")
+    return response
