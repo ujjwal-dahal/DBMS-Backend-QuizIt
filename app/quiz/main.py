@@ -306,7 +306,7 @@ def get_quiz_by_id(quiz_id: str, auth: dict = Depends(verify_bearer_token)):
         query = """
             SELECT q.id, u.id, q.title, q.description, q.cover_photo,
             u.full_name, u.photo, q.created_at,
-            COUNT(qq.id)
+            COUNT(qq.id),u.username
             FROM quizzes q
             JOIN users u ON u.id = q.creator_id
             LEFT JOIN quiz_questions qq ON qq.quiz_id = q.id
@@ -330,6 +330,7 @@ def get_quiz_by_id(quiz_id: str, auth: dict = Depends(verify_bearer_token)):
             image,
             date,
             count,
+            username,
         ) = row
 
         is_this_me = player_id == user_id
@@ -377,6 +378,7 @@ def get_quiz_by_id(quiz_id: str, auth: dict = Depends(verify_bearer_token)):
             "description": description,
             "cover_photo": cover_photo,
             "author": name,
+            "username": username,
             "image": image,
             "plays": plays,
             "date": date,
